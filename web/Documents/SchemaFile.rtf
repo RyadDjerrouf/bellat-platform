@@ -1,0 +1,111 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2867
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 -- Enable UUID extension for offline-ready primary keys\
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";\
+-- Enable Trigram extension for fast Arabic/French fuzzy search\
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";\
+\
+-- 1. USERS & AUTHENTICATION\
+CREATE TYPE user_role AS ENUM ('GUEST', 'B2C', 'B2B', 'STAFF', 'ADMIN');\
+\
+CREATE TABLE users (\
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\
+    phone_number TEXT UNIQUE NOT NULL, -- Primary login for Algeria\
+    email TEXT UNIQUE,\
+    password_hash TEXT NOT NULL,\
+    role user_role DEFAULT 'B2C',\
+    full_name TEXT NOT NULL,\
+    is_active BOOLEAN DEFAULT true,\
+    language_pref CHAR(2) DEFAULT 'ar', -- 'ar' or 'fr'\
+    created_at TIMESTAMPTZ DEFAULT NOW(),\
+    updated_at TIMESTAMPTZ DEFAULT NOW(),\
+    metadata JSONB -- Stores social login IDs, session info, etc.\
+);\
+\
+-- 2. B2B SPECIFIC DATA\
+CREATE TABLE b2b_profiles (\
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,\
+    company_name TEXT NOT NULL,\
+    tax_id TEXT, -- Registre du Commerce\
+    credit_limit DECIMAL(12, 2) DEFAULT 0.00,\
+    current_balance DECIMAL(12, 2) DEFAULT 0.00,\
+    is_approved BOOLEAN DEFAULT false,\
+    approved_at TIMESTAMPTZ\
+);\
+\
+-- 3. PRODUCT CATALOG\
+CREATE TABLE categories (\
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\
+    name JSONB NOT NULL, -- e.g., \{"ar": "\uc0\u1603 \u1575 \u1588 \u1610 \u1585 ", "fr": "Kachir"\}\
+    slug TEXT UNIQUE NOT NULL,\
+    image_url TEXT,\
+    parent_id UUID REFERENCES categories(id) -- For sub-categories\
+);\
+\
+CREATE TABLE products (\
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\
+    category_id UUID REFERENCES categories(id),\
+    name JSONB NOT NULL,\
+    description JSONB,\
+    brand TEXT,\
+    meat_type TEXT, -- Boeuf, Poulet, Dinde\
+    is_halal BOOLEAN DEFAULT true,\
+    is_active BOOLEAN DEFAULT true,\
+    tags TEXT[], -- For fuzzy search indexing\
+    created_at TIMESTAMPTZ DEFAULT NOW()\
+);\
+\
+-- 4. INVENTORY & PRICING (Variants)\
+CREATE TABLE product_variants (\
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,\
+    sku TEXT UNIQUE NOT NULL,\
+    weight_grams INTEGER,\
+    unit_type TEXT DEFAULT 'piece', -- piece, kg, pack\
+    retail_price DECIMAL(10, 2) NOT NULL,\
+    b2b_price DECIMAL(10, 2) NOT NULL,\
+    stock_qty INTEGER DEFAULT 0,\
+    low_stock_threshold INTEGER DEFAULT 5,\
+    version INTEGER DEFAULT 1 -- For optimistic locking/sync\
+);\
+\
+-- 5. ORDERS & LOGISTICS\
+CREATE TYPE order_status AS ENUM ('PENDING', 'CONFIRMED', 'PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED');\
+\
+CREATE TABLE orders (\
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\
+    order_number SERIAL UNIQUE, -- Human readable: BLT-1001\
+    user_id UUID REFERENCES users(id),\
+    status order_status DEFAULT 'PENDING',\
+    total_amount DECIMAL(12, 2) NOT NULL,\
+    delivery_fee DECIMAL(10, 2) DEFAULT 0.00,\
+    payment_method TEXT DEFAULT 'COD', -- Cash on Delivery\
+    delivery_address JSONB NOT NULL, -- Stores snapshot of address\
+    delivery_slot_start TIMESTAMPTZ,\
+    delivery_slot_end TIMESTAMPTZ,\
+    notes TEXT,\
+    offline_created_at TIMESTAMPTZ, -- When user clicked 'order' while offline\
+    created_at TIMESTAMPTZ DEFAULT NOW(),\
+    updated_at TIMESTAMPTZ DEFAULT NOW()\
+);\
+\
+CREATE TABLE order_items (\
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,\
+    variant_id UUID REFERENCES product_variants(id),\
+    quantity INTEGER NOT NULL,\
+    unit_price DECIMAL(10, 2) NOT NULL, -- Price snapshot at time of order\
+    total_price DECIMAL(10, 2) NOT NULL\
+);\
+\
+-- 6. PERFORMANCE INDEXES\
+CREATE INDEX idx_products_name_ar ON products USING gin ((name->'ar'));\
+CREATE INDEX idx_products_name_fr ON products USING gin ((name->'fr'));\
+CREATE INDEX idx_order_user_id ON orders(user_id);\
+CREATE INDEX idx_variant_sku ON product_variants(sku);\
+}

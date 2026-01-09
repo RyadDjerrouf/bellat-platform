@@ -1,0 +1,2 @@
+# This file ensures the docker/ directory is tracked by Git
+# Dockerfiles and related configurations will be added here
