@@ -1,321 +1,127 @@
-# Bellat Platform - Claude Development Instructions
+# CLAUDE.md
 
-> **Project-specific instructions for Claude Code across all development sessions**
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🎯 Critical Requirements
+## Build, Test, and Lint Commands
 
-### Code Comments Policy
-**IMPORTANT**: Add comments when needed throughout the codebase:
+```bash
+# Active frontend (Next.js in /web — only working app right now)
+cd web && npm run dev          # Start dev server (port 3000)
+cd web && npm run build        # Production build
+cd web && npm run lint         # ESLint
 
-- **Business Logic**: Explain WHY, not WHAT. Document business rules, especially Algerian market specifics
-- **Complex Algorithms**: Break down multi-step processes (e.g., delivery zone calculations, B2B credit checks)
-- **Non-Obvious Code**: When the purpose isn't immediately clear from variable/function names
-- **Bilingual Context**: Explain RTL/LTR handling, Arabic text processing
-- **Security Considerations**: Document security decisions (JWT validation, rate limiting logic)
-- **API Integrations**: Explain external service interactions (SMS gateway, payment providers)
-- **Performance Optimizations**: Why we chose a specific approach for performance
+# Root monorepo (uses Turbo — backends not yet scaffolded)
+npm run build                  # Build all apps/libs
+npm run lint                   # Lint all packages
+npm run format                 # Prettier format all files
+npm run format:check           # Check formatting
+npm run type-check             # TypeScript check
 
-**Comment Format**:
+# Database (Prisma — once libs/database exists)
+cd libs/database && npx prisma generate      # Generate Prisma client
+cd libs/database && npx prisma migrate dev   # Run migrations
+cd libs/database && npx prisma studio        # Open Prisma Studio GUI
+cd libs/database && npx prisma db seed       # Seed database
+
+# Docker infrastructure
+docker-compose up -d           # Start PostgreSQL + Redis + MinIO
+docker-compose down            # Stop all services
+docker-compose logs -f postgres # View postgres logs
+```
+
+## Architecture Overview
+
+**Monorepo Structure** (npm workspaces + Turbo):
+- `/web/` — Next.js 16 frontend (active development, fully working)
+- `/apps/` — Future NestJS microservices (empty, not yet scaffolded)
+- `/libs/` — Future shared code: database/Prisma, types, utilities (empty)
+- `/docs/` — Reference docs including `schema-prototype.sql` (DB design)
+- `/docker/` and `/k8s/` — Infrastructure placeholders
+
+**Current State**: The prototype from `bellat-prototype` has been fully migrated into `/web`. It is a working bilingual e-commerce frontend with mock data. Backend microservices in `/apps/` have not been started.
+
+**Active tech stack in `/web`**:
+- Next.js 16.1.1 (App Router), React 19, Tailwind CSS 4, TypeScript strict
+- next-intl 4.7.0 for bilingual routing (`/fr/*`, `/ar/*`)
+- lucide-react, sonner, date-fns, clsx, @radix-ui/react-label
+- Context API (CartContext, CheckoutContext) + localStorage persistence
+- Mock data in `public/data/` (products.json, categories.json, mock-orders.json)
+- No real backend or database yet — all data is static JSON
+
+**`/web` directory layout**:
+```
+web/
+├── app/
+│   ├── [locale]/      # Bilingual customer-facing routes (fr/ar)
+│   │   ├── page.tsx           # Home (HeroSection, CategoryGrid, PopularProducts)
+│   │   ├── products/          # Listing + [id] detail pages
+│   │   ├── cart/              # Shopping cart
+│   │   ├── checkout/          # 4-step checkout (address, delivery, review, success)
+│   │   ├── search/            # Search results
+│   │   └── layout.tsx         # Locale layout (sets dir="rtl" for Arabic)
+│   ├── admin/                 # Admin dashboard (mock login, display-only)
+│   └── layout.tsx             # Root pass-through layout
+├── components/        # home/, products/, checkout/, cart/, layout/, ui/
+├── context/           # CartContext.tsx, CheckoutContext.tsx
+├── types/             # product.ts, category.ts, order.ts, cart.ts
+├── lib/               # Data loading utilities
+├── public/data/       # products.json, categories.json, mock-orders.json
+├── messages/          # fr.json, ar.json (50+ translation keys each)
+├── i18n.ts            # next-intl request config
+├── proxy.ts           # next-intl middleware (Next.js 16: proxy.ts, not middleware.ts)
+└── next.config.ts     # withNextIntl + image optimization
+```
+
+**Target Backend Stack** (not yet started):
+- NestJS 10 microservices: api-gateway, auth, product, order, delivery, notification
+- PostgreSQL 15 + Prisma 5, Redis 7, Docker + Kubernetes
+- Schema reference: `docs/schema-prototype.sql`
+
+## Algerian Market Context
+
+This is an e-commerce platform for Bellat (CVA - Conserverie de Viandes d'Algérie), serving B2C retail and B2B wholesale customers:
+
+- **Bilingual**: Arabic (RTL) primary, French (LTR) secondary — use `start`/`end` not `left`/`right` in Tailwind
+- **Phone format**: +213 with 10 digits (e.g., +213 555 123 456)
+- **Currency**: DZD (Algerian Dinar) — no decimal places
+- **Wilayas**: 48 administrative divisions (codes 1-48) for delivery zones
+- **Payment**: Cash on Delivery is primary (~80%), B2B gets credit terms
+- **Localization**: Use `Intl.DateTimeFormat` with `ar-DZ` / `fr-DZ`
+
+## Key Standards
+
+**API Response Format** (for future backend):
 ```typescript
-// Business Rule: B2B customers get 30-day credit terms (per Bellat policy)
-// See: Functional Spec Section 4.2.3
-
-/**
- * Calculates delivery fee based on wilaya and order total
- *
- * @param wilaya - Algerian wilaya code (1-48)
- * @param orderTotal - Order total in DZD
- * @returns Delivery fee in DZD
- *
- * Business Rules:
- * - Free delivery for orders > 10,000 DZD
- * - Algiers (wilaya 16): 300 DZD base fee
- * - Other wilayas: 500-1000 DZD based on zone
- */
+// Success: { success: true, data: {...}, message: "..." }
+// Error: { success: false, error: { code: "ERROR_CODE", message: "...", details: {...} } }
 ```
 
-**Don't Over-Comment**: Skip comments for self-evident code like simple getters/setters
-
----
-
-## 🏗️ Architecture Guidelines
-
-### Monorepo Structure
-```
-/apps/
-  /api/          - NestJS backend (microservices)
-  /frontend/     - Next.js customer PWA
-  /admin/        - Next.js admin dashboard
-/libs/
-  /shared/       - Shared TypeScript types, utilities
-  /ui/           - Shared React components
-```
-
-### Key Technology Stack
-- **Frontend**: Next.js 14 (App Router), React 18, TypeScript 5, Tailwind CSS 3
-- **Backend**: NestJS 10, Prisma 5, PostgreSQL 15, Redis 7
-- **Infrastructure**: Docker, Kubernetes, Cloudflare (CDN + WAF)
-- **i18n**: next-i18next (Arabic RTL + French LTR)
-
----
-
-## 🇩🇿 Algerian Market Specifics
-
-### Always Consider:
-1. **Phone Numbers**: +213 format with 10 digits (e.g., +213 555 123 456)
-2. **Wilayas**: 48 administrative divisions (use codes 1-48)
-3. **Cash on Delivery**: Primary payment method (~80% of orders)
-4. **Currency**: DZD (Algerian Dinar) - no decimal places needed
-5. **Language**: Arabic primary (RTL), French secondary (LTR)
-6. **Business Hours**: Saturday-Thursday (Friday off for most)
-7. **Delivery**: Urban vs remote wilaya differences (cost + time)
-
-### Localization
-- All user-facing text must be in i18n keys (never hardcode)
-- Date/time formatting: Use `Intl.DateTimeFormat` with `ar-DZ` / `fr-DZ`
-- Numbers: Arabic-Indic numerals (٠-٩) for Arabic, Western (0-9) for French
-
----
-
-## 🔒 Security Standards
-
-1. **Passwords**: bcrypt with cost factor 12
-2. **JWT**: RS256 algorithm, 15-min access tokens, 7-day refresh tokens
-3. **API Rate Limiting**: 100 req/min per IP (adjust per endpoint)
-4. **Input Validation**: Zod schemas for all API inputs
-5. **SQL Injection**: Always use Prisma (never raw SQL unless necessary)
-6. **XSS Protection**: Sanitize user inputs, use Next.js automatic escaping
-7. **CORS**: Whitelist only production domains
-8. **Secrets**: Never commit `.env` files (use `.env.example` as template)
-
----
-
-## 📊 Database Schema
-
-**18 Core Tables**:
-- `users`, `user_addresses`, `user_sessions`
-- `products`, `product_variants`, `product_images`
-- `categories`, `recipes`, `recipe_ingredients`
-- `orders`, `order_items`, `order_tracking`
-- `cart_items`
-- `delivery_zones`, `delivery_schedules`
-- `notifications`, `sms_logs`, `audit_logs`
-
-**Reference**: See `.claude/project-initialization.md` Section 6 for full ERD
-
----
-
-## 🎨 Frontend Standards
-
-### Component Structure
-```typescript
-// 1. Imports
-import { useState } from 'react'
-import { useTranslation } from 'next-i18next'
-
-// 2. Types/Interfaces
-interface ProductCardProps {
-  product: Product
-  onAddToCart: (id: string) => void
-}
-
-// 3. Component
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
-  const { t } = useTranslation('common')
-  // ...
-}
-
-// 4. Exports
-export default ProductCard
-```
-
-### Naming Conventions
-- **Components**: PascalCase (`ProductCard.tsx`)
-- **Hooks**: camelCase with `use` prefix (`useAuth.ts`)
-- **Utils**: camelCase (`formatPrice.ts`)
-- **Constants**: SCREAMING_SNAKE_CASE (`MAX_CART_ITEMS`)
-- **Types**: PascalCase with descriptive suffix (`ProductCardProps`, `OrderStatus`)
-
-### Styling
-- Use Tailwind CSS utility classes
-- RTL support: Use `start`/`end` instead of `left`/`right`
-- Mobile-first: Default to mobile, use `md:`, `lg:` for larger screens
-
----
-
-## 🔧 Backend Standards
-
-### NestJS Module Structure
-```
-/src/
-  /auth/
-    auth.controller.ts
-    auth.service.ts
-    auth.module.ts
-    /dto/
-      login.dto.ts
-      register.dto.ts
-    /guards/
-      jwt-auth.guard.ts
-```
-
-### API Response Format
-```typescript
-// Success
-{
-  "success": true,
-  "data": { /* payload */ },
-  "message": "Operation successful"
-}
-
-// Error
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "Email or password incorrect",
-    "details": { /* optional */ }
-  }
-}
-```
-
-### Error Handling
-- Use NestJS built-in exceptions (`NotFoundException`, `BadRequestException`)
-- Log all errors with context (user ID, request ID)
-- Never expose stack traces in production
-- Return user-friendly error messages in both languages
-
----
-
-## 🧪 Testing Standards
-
-### Coverage Targets
-- **Unit Tests**: 80% coverage minimum
-- **Integration Tests**: All API endpoints
-- **E2E Tests**: Critical user flows (registration, checkout, order placement)
-
-### Testing Tools
-- **Unit**: Jest + React Testing Library
-- **E2E**: Playwright
-- **API**: Supertest
-
-### Test File Naming
-- Unit: `*.spec.ts` (e.g., `auth.service.spec.ts`)
-- E2E: `*.e2e-spec.ts` (e.g., `checkout.e2e-spec.ts`)
-
----
-
-## 📝 Git Commit Standards
-
-### Commit Message Format
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-### Types
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only
-- `style`: Code style (formatting, no logic change)
-- `refactor`: Code refactoring
-- `perf`: Performance improvement
-- `test`: Adding/updating tests
-- `chore`: Build process, dependencies
-
-### Examples
-```
-feat(auth): implement JWT refresh token rotation
-
-- Add refresh token endpoint
-- Store refresh tokens in Redis with 7-day TTL
-- Implement automatic token rotation on refresh
-
-Refs: FR-AUTH-002
-
----
-
-fix(delivery): correct wilaya 48 delivery zone mapping
-
-Wilaya 48 (Relizane) was incorrectly mapped to Zone 3.
-Should be Zone 2 per Bellat delivery policy.
-
-Fixes: #123
-```
-
----
-
-## 🚀 Performance Targets
-
-### Frontend
-- **First Contentful Paint**: < 1.8s
-- **Time to Interactive**: < 3.5s
-- **Lighthouse Score**: > 90 (Performance, Accessibility, Best Practices, SEO)
-
-### Backend
-- **API Response Time**: < 200ms (P95)
-- **Database Queries**: < 50ms (P95)
-- **Concurrent Users**: 10,000 simultaneous
-
-### PWA
-- **Offline Support**: Cart, product browsing, order submission queue
-- **Cache Strategy**: Stale-while-revalidate for products, network-first for orders
-- **Service Worker**: Background sync for queued orders
-
----
-
-## 🔄 Development Workflow
-
-1. **Branch Naming**: `<type>/<short-description>` (e.g., `feat/jwt-auth`, `fix/wilaya-mapping`)
-2. **Pull Requests**: Require code review + passing tests before merge
-3. **Environments**:
-   - `development`: Local (localhost:3000, localhost:4000)
-   - `staging`: Pre-production (staging.bellat.dz)
-   - `production`: Live (bellat.dz, www.bellat.dz)
-
----
-
-## 📚 Documentation References
-
-- **Full Specs**: `/web/Documents/` (Enhanced SRS, Functional Spec, Product Spec)
-- **Claude Docs**: `/.claude/` (Initialization, Quickstart, Tech Decisions)
-- **Roadmap**: `/TODO.md` (110 tasks across 6 phases)
-
----
-
-## 🚨 Out of Scope
-
-**Driver/Delivery Staff Mobile App**: This is a separate Bellat initiative, NOT part of this project.
-
-For Phase 1, delivery status updates will be done manually via Admin Dashboard.
-
----
-
-## 💡 General Development Principles
-
-1. **Type Safety**: Prefer TypeScript strict mode, avoid `any`
-2. **DRY**: Extract reusable logic into `libs/shared/`
-3. **KISS**: Simple solutions over clever ones
-4. **Accessibility**: WCAG 2.1 Level AA compliance (keyboard nav, ARIA labels, screen readers)
-5. **Mobile-First**: Design for mobile, enhance for desktop
-6. **Progressive Enhancement**: Core functionality works without JS
-7. **Idempotency**: POST requests should be idempotent where possible (order creation, payments)
-8. **Observability**: Log key events (order placed, payment received, delivery dispatched)
-
----
-
-## 🎯 Session-to-Session Continuity
-
-When starting a new session:
-1. Check `/TODO.md` for current phase and pending tasks
-2. Review recent git commits to understand latest changes
-3. Check for open issues or blockers documented in code comments
-4. Maintain consistency with existing patterns in the codebase
-
----
-
-**Last Updated**: 2026-01-08 (Project Initialization)
-**Version**: 1.0.0
+**Security** (for future backend):
+- Passwords: bcrypt cost factor 12
+- JWT: RS256, 15-min access tokens, 7-day refresh tokens
+- Rate limiting: 100 req/min public, 1000 authenticated
+- Input validation: Zod schemas for all API inputs
+
+**Code Style**:
+- TypeScript strict mode, avoid `any`
+- Components: PascalCase files (`ProductCard.tsx`)
+- Services/utils: kebab-case files (`product.service.ts`)
+- Tests: `*.spec.ts` for unit, `*.e2e-spec.ts` for E2E (no test framework configured yet — planned with NestJS/Jest)
+- Path alias in `/web`: `@/*` resolves to the web root (e.g., `@/components/...`, `@/app/...`)
+- Tailwind CSS 4: configured via `@tailwindcss/postcss` in `postcss.config.mjs` — no `tailwind.config.js`
+- i18n in `/web`: use `next-intl` hooks (`useTranslations`) and server functions — not i18next
+- Next.js 16 middleware convention: use `proxy.ts` (not `middleware.ts`)
+
+**Comments**: Add comments for business logic (especially Algerian-specific rules), complex algorithms, RTL/LTR handling, and security decisions. Skip obvious code.
+
+## Development Workflow
+
+- **Branch naming**: `feat/description`, `fix/description`, `hotfix/description`
+- **Commits**: Follow conventional commits (`feat(auth): add JWT refresh`)
+- **Environments**: localhost:3000 (web/frontend), localhost:3001 (admin — future), localhost:3002 (API — future)
+- **Check `/TODO.md`** for current roadmap (110 tasks across 6 phases, Phase 0 complete)
+- **Admin demo credentials**: admin@bellat.net / demo123 (mock only — no real auth)
+
+## Out of Scope
+
+Driver/Delivery Staff Mobile App is a separate initiative — delivery status updates are manual via Admin Dashboard in Phase 1.

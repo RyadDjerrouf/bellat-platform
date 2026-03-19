@@ -1,0 +1,110 @@
+[
+  {
+    "id": "prod_001",
+    "name_fr": "Kachir Bœuf Premium",
+    "name_ar": "كشير بقري فاخر",
+    "category": "kachir",
+    "image": "/images/products/kachir.jpg",
+    "price": 450,
+    "unit": "500g",
+    "stock_status": "in_stock",
+    "description_fr": "Kachir de viande de bœuf de haute qualité, préparé selon les méthodes traditionnelles de Bellat.",
+    "description_ar": "كشير من لحم البقر عالي الجودة، محضر وفق الطرق التقليدية لبلاط."
+  },
+  {
+    "id": "prod_002",
+    "name_fr": "Luncheon Poulet",
+    "name_ar": "لانشون دجاج",
+    "category": "luncheon",
+    "image": "/images/products/jambon.jpg",
+    "price": 380,
+    "unit": "400g",
+    "stock_status": "in_stock",
+    "description_fr": "Luncheon de poulet savoureux, idéal pour les sandwichs.",
+    "description_ar": "لانشون دجاج لذيذ، مثالي للساندويتش."
+  },
+  {
+    "id": "prod_003",
+    "name_fr": "Rôti de Dinde",
+    "name_ar": "روتي الديك الرومي",
+    "category": "rotis",
+    "image": "/images/products/rotis.jpg",
+    "price": 1200,
+    "unit": "1kg",
+    "stock_status": "in_stock",
+    "description_fr": "Un délicieux rôti de dinde, parfait pour les repas de famille.",
+    "description_ar": "روتي الديك الرومي اللذيذ، مثالي للوجبات العائلية."
+  },
+  {
+    "id": "prod_004",
+    "name_fr": "Saucisses Hot Dog",
+    "name_ar": "نقانق هوت دوج",
+    "category": "hot-dog",
+    "image": "/images/products/hot dog.jpg",
+    "price": 320,
+    "unit": "Paquet de 10",
+    "stock_status": "low_stock",
+    "description_fr": "Les saucisses parfaites pour vos soirées hot dog.",
+    "description_ar": "النقانق المثالية لأمسيات الهوت دوج الخاصة بك."
+  },
+  {
+    "id": "prod_005",
+    "name_fr": "Pâté de Volaille en Conserve",
+    "name_ar": "باتي دجاج معلب",
+    "category": "conserves",
+    "image": "/images/products/pâtés.jpg",
+    "price": 250,
+    "unit": "200g",
+    "stock_status": "in_stock",
+    "description_fr": "Pâté de volaille en conserve, pratique et savoureux.",
+    "description_ar": "باتي دجاج معلب، عملي ولذيذ."
+  },
+  {
+    "id": "prod_006",
+    "name_fr": "Mortadella",
+    "name_ar": "مرتديلا",
+    "category": "luncheon",
+    "image": "/images/products/mortadella.jpg",
+    "price": 470,
+    "unit": "500g",
+    "stock_status": "in_stock",
+    "description_fr": "Mortadella de qualité supérieure, goût authentique italien.",
+    "description_ar": "مرتديلا عالية الجودة، بطعم إيطالي أصيل."
+  },
+  {
+    "id": "prod_007",
+    "name_fr": "Galantine de Poulet",
+    "name_ar": "جالنتين دجاج",
+    "category": "conserves",
+    "image": "/images/products/galantine.jpg",
+    "price": 380,
+    "unit": "300g",
+    "stock_status": "in_stock",
+    "description_fr": "Galantine de poulet délicate, préparée avec soin.",
+    "description_ar": "جالنتين دجاج رقيق، محضر بعناية."
+  },
+  {
+    "id": "prod_008",
+    "name_fr": "Salami Premium",
+    "name_ar": "سلامي فاخر",
+    "category": "luncheon",
+    "image": "/images/products/salami.jpg",
+    "price": 520,
+    "unit": "400g",
+    "stock_status": "in_stock",
+    "description_fr": "Salami de première qualité, saveur riche et authentique.",
+    "description_ar": "سلامي من الدرجة الأولى، نكهة غنية وأصيلة."
+  },
+  {
+    "id": "prod_009",
+    "name_fr": "Chawarma Épicée",
+    "name_ar": "شاورما حارة",
+    "category": "kachir",
+    "image": "/images/products/chawarma.jpg",
+    "price": 460,
+    "unit": "500g",
+    "stock_status": "in_stock",
+    "description_fr": "Chawarma épicée, parfaite pour vos plateaux orientaux.",
+    "description_ar": "شاورما حارة، مثالية للأطباق الشرقية."
+  }
+]

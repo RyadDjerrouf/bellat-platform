@@ -1,8 +1,8 @@
 # Bellat Digital Ordering Platform
 ## Project Initialization Document
 
-**Status:** Initialization Only - Kickoff Pending
-**Date:** January 8, 2026
+**Status:** Phase 0 Complete — Frontend prototype migrated, backend not yet started
+**Last Updated:** March 18, 2026
 **Project Type:** Full-Stack E-Commerce Platform (Progressive Web Application)
 
 ---
@@ -25,13 +25,13 @@ The Bellat Digital Ordering Platform is a comprehensive digital transformation i
 
 #### Frontend Layer
 ```
-Customer PWA:
-├── Next.js 14 (App Router, SSR)
-├── React 18 (UI Components)
-├── Tailwind CSS 3 (Styling)
-├── Zustand 4 (State Management)
-├── i18next (AR/FR Localization)
-└── Workbox (Service Worker/Offline)
+Customer PWA (currently in /web — prototype migrated):
+├── Next.js 16 (App Router, SSR)         ← upgraded from planned v14
+├── React 19 (UI Components)              ← upgraded from planned v18
+├── Tailwind CSS 4 (Styling)              ← upgraded from planned v3
+├── next-intl 4.7 (AR/FR Localization)    ← replaced planned i18next
+├── React Context (Cart/Checkout state)   ← Zustand planned for Phase 2
+└── Workbox (Service Worker/Offline)      ← planned for Phase 2
 
 Admin Dashboard:
 ├── React 18
@@ -526,13 +526,14 @@ Admin will manually update delivery statuses in Phase 1
 
 ## Development Roadmap (Phased)
 
-### Phase 0: Foundation & Infrastructure ✓ Ready
-- [ ] Cloud environment setup (Docker/Kubernetes)
-- [ ] CI/CD pipeline (GitHub Actions/GitLab CI)
-- [ ] PostgreSQL schema migration
-- [ ] Redis cluster configuration
-- [ ] i18next localization framework
-- [ ] Security baseline (JWT, bcrypt, rate limiting)
+### Phase 0: Foundation & Infrastructure ✅ Complete
+- [x] Monorepo scaffolded (Turbo + npm workspaces)
+- [x] Docker Compose configured (PostgreSQL + Redis + MinIO)
+- [x] Frontend prototype migrated to `/web` (Next.js 16, bilingual, cart, checkout)
+- [x] Database schema designed (`docs/schema-prototype.sql`)
+- [ ] Cloud environment setup (Kubernetes staging/production)
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Security baseline (JWT, bcrypt, rate limiting) — backend not started
 
 ### Phase 1: Core Backend Development
 **Auth Service:**
@@ -835,8 +836,8 @@ Social: @bellatalgerie (Facebook), @bellat_el_djazair (Instagram)
 
 ---
 
-**Document Status:** INITIALIZATION COMPLETE - READY FOR KICKOFF
+**Document Status:** PHASE 0 COMPLETE — BACKEND DEVELOPMENT NEXT
 
-**Last Updated:** January 8, 2026
-**Version:** 1.0
-**Next Review:** Upon kickoff approval
+**Last Updated:** March 18, 2026
+**Version:** 1.1
+**Next Review:** Phase 1 kickoff (NestJS backend scaffolding)

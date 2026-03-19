@@ -1,318 +1,103 @@
 # Bellat Digital Ordering Platform
 
-**A modern, bilingual e-commerce platform for Algeria's premier meat products company**
+A modern, bilingual e-commerce platform for **CVA (Conserverie de Viandes d'Algérie)**, serving B2C retail and B2B wholesale customers across Algeria.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## 🌟 Project Overview
+## Current Status — March 2026
 
-The Bellat Digital Ordering Platform is a comprehensive digital transformation initiative for **CVA (Conserverie de Viandes d'Algérie)**, a 50+ year legacy meat products company in Algeria. This platform delivers a modern, mobile-first ordering system supporting both retail (B2C) and wholesale (B2B) customer segments with full bilingual Arabic/French support.
+| Layer | Status | Tech |
+|---|---|---|
+| Frontend `/web` | ✅ Prototype migrated, working | Next.js 16 + React 19 + Tailwind 4 |
+| Bilingual routing | ✅ Live (`/fr/*`, `/ar/*`) | next-intl 4.7 |
+| Cart + Checkout | ✅ Working (mock data) | React Context + localStorage |
+| Admin dashboard | ✅ Display skeleton (mock login) | — |
+| Backend microservices | ⏳ Not started | NestJS 10 (planned) |
+| Database | ⏳ Not connected | PostgreSQL 15 + Prisma 5 (planned) |
+| Infrastructure | ✅ Docker Compose ready | Postgres + Redis + MinIO |
 
-### Key Features
-
-- 🌍 **Bilingual Support:** Arabic (RTL) and French (LTR)
-- 📱 **Progressive Web App:** Offline-first with service workers
-- 🏪 **Dual Commerce:** B2C retail + B2B wholesale
-- 📦 **15 Product Categories:** Complete meat products catalog
-- 🚚 **Delivery Management:** 48 Algerian Wilayas coverage
-- 💳 **Payment Methods:** Cash on Delivery + B2B credit/invoicing
-- 🍳 **Recipe Integration:** Recipe-to-cart functionality
-- 📊 **Admin Dashboard:** Complete back-office management
-
----
-
-## 🏗️ Architecture
-
-### Technology Stack
-
-#### Frontend
-- **Next.js 14** (App Router, SSR)
-- **React 18** (UI Components)
-- **Tailwind CSS 3** (Utility-first styling)
-- **Zustand 4** (State management)
-- **i18next** (Internationalization)
-- **Workbox** (Service Worker/PWA)
-
-#### Backend
-- **NestJS 10** (Microservices framework)
-- **TypeScript 5** (Type-safe language)
-- **Prisma 5** (ORM and database toolkit)
-- **PostgreSQL 15** (Primary database)
-- **Redis 7** (Cache and session store)
-
-#### Infrastructure
-- **Docker** + **Kubernetes** (Container orchestration)
-- **Cloudflare** (CDN/WAF/DDoS protection)
-- **GitHub Actions** (CI/CD)
-- **Prometheus + Grafana** (Monitoring)
-
-### System Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│              CLIENT LAYER                                │
-├──────────────────┬──────────────────┬───────────────────┤
-│  Customer PWA    │  Admin Dashboard │   Future Apps     │
-│  (Next.js)       │    (React)       │                   │
-└────────┬─────────┴────────┬─────────┴──────┬────────────┘
-         │                  │                 │
-         └──────────────────┴─────────────────┘
-                           │
-                           ▼
-                   ┌───────────────┐
-                   │  API Gateway  │
-                   │   (NestJS)    │
-                   └───────┬───────┘
-                           │
-         ┌─────────────────┼─────────────────┐
-         │                 │                 │
-    ┌────▼────┐      ┌────▼────┐      ┌────▼────┐
-    │  Auth   │      │ Product │      │  Order  │
-    │ Service │      │ Service │      │ Service │
-    └─────────┘      └─────────┘      └─────────┘
-         │                 │                 │
-         └─────────────────┼─────────────────┘
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-         ┌────▼─────┐            ┌─────▼────┐
-         │PostgreSQL│            │  Redis   │
-         └──────────┘            └──────────┘
-```
-
----
-
-## 📋 Project Status
-
-**Current Phase:** Initialization Complete ✅
-**Next Phase:** Foundation & Infrastructure Setup
 **Target Launch:** Q2 2026
 
-### Roadmap
-
-- ✅ **Phase 0:** Foundation & Infrastructure (Planning complete)
-- ⏳ **Phase 1:** Core Backend Development
-- ⏳ **Phase 2:** Frontend & PWA Experience
-- ⏳ **Phase 3:** Admin & Operations Dashboard
-- ⏳ **Phase 4:** Notifications & Integrations
-- ⏳ **Phase 5:** QA & Launch Readiness
-- ⏳ **Phase 6:** Post-Launch & Maintenance
-
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js >= 18.x
-- npm >= 9.x or pnpm >= 8.x
-- Docker >= 24.x
-- PostgreSQL >= 15.x
-- Redis >= 7.x
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/rdjerrouf/bellat-platform.git
-cd bellat-platform
+# Frontend (active development)
+cd web && npm install
+cd web && npm run dev      # http://localhost:3000
 
-# Install dependencies
-npm install
-# or
-pnpm install
-
-# Set up environment variables
-cp .env.example .env.local
-
-# Start infrastructure (Docker Compose)
-docker-compose up -d
-
-# Run database migrations
-npx prisma migrate dev
-
-# Start development servers
-npm run dev
+# Infrastructure (when backend work begins)
+docker-compose up -d       # PostgreSQL + Redis + MinIO
 ```
 
-**Full setup instructions:** See [.claude/QUICKSTART.md](.claude/QUICKSTART.md)
+See [.claude/QUICKSTART.md](.claude/QUICKSTART.md) for full setup instructions.
 
 ---
 
-## 📁 Project Structure
+## Architecture
+
+### Monorepo Structure
 
 ```
 bellat-platform/
-├── apps/                      # Applications (monorepo)
-│   ├── frontend/              # Customer PWA (Next.js)
-│   ├── admin/                 # Admin Dashboard (React)
-│   ├── api-gateway/           # API Gateway (NestJS)
-│   ├── auth-service/          # Authentication microservice
-│   ├── product-service/       # Product catalog microservice
-│   ├── order-service/         # Order management microservice
-│   ├── delivery-service/      # Delivery & logistics microservice
-│   └── notification-service/  # Notifications microservice
-├── libs/                      # Shared libraries
-│   ├── common/                # Shared utilities
-│   ├── database/              # Prisma schema
-│   └── types/                 # TypeScript types
-├── docker/                    # Docker configurations
-├── k8s/                       # Kubernetes manifests
-├── web/                       # Legacy documentation
-│   └── Documents/             # Original specification docs
-├── .claude/                   # Project documentation
-│   ├── README.md              # Documentation index
-│   ├── SUMMARY.md             # Project summary
-│   ├── QUICKSTART.md          # Developer onboarding
-│   ├── project-initialization.md  # Complete initialization guide
-│   └── TECH-DECISIONS.md      # Technology rationale
-└── README.md                  # This file
+├── web/               # ← Active: Next.js 16 frontend (prototype migrated)
+├── apps/              # ← Future: NestJS microservices (api-gateway, auth, product, order, delivery, notification)
+├── libs/              # ← Future: shared database/Prisma, types, common utilities
+├── docs/              # Reference: schema-prototype.sql (database design)
+├── docker-compose.yml # Local infrastructure: PostgreSQL + Redis + MinIO
+├── .claude/           # Project documentation
+└── CLAUDE.md          # Claude Code development guide
 ```
 
----
+### Target Stack (Phase 1 complete vision)
 
-## 📖 Documentation
-
-### Essential Documents
-
-1. **[Project Summary](.claude/SUMMARY.md)** - High-level overview and quick reference
-2. **[Quick Start Guide](.claude/QUICKSTART.md)** - Developer onboarding and setup
-3. **[Project Initialization](.claude/project-initialization.md)** - Complete technical specification
-4. **[Technology Decisions](.claude/TECH-DECISIONS.md)** - Architecture and technology rationale
-
-### Specification Documents
-
-- **[Enhanced SRS v2.0](web/Documents/Bellat_Digital_Platform_Enhanced_SRS.md)** - Software Requirements Specification
-- **[Functional Spec v1.0](web/Documents/Bellat_Digital_Platform_Functional_Spec.md)** - Functional Specification
-- **[Product Spec v1.0](web/Documents/Bellat_Software_Product_Specification.md)** - Software Product Specification
-- **[Roadmap](web/Documents/TODO.md)** - Project roadmap and milestones
+- **Frontend:** Next.js 16, React 19, Tailwind CSS 4, next-intl (bilingual), Zustand
+- **Backend:** NestJS 10 microservices, Prisma 5, PostgreSQL 15, Redis 7
+- **Infrastructure:** Docker + Kubernetes, Cloudflare CDN, GitHub Actions CI/CD
 
 ---
 
-## 🎯 Core Features
+## Working Features (frontend, mock data)
 
-### Customer Experience (PWA)
-- Browse 15 product categories
-- Advanced search with Arabic transliteration
-- Shopping cart with offline support
-- Multi-address management
-- Order tracking and history
-- Recipe-to-cart functionality
-- Bilingual interface (AR/FR)
-
-### B2B Features
-- Wholesale pricing
-- Credit management
-- Invoice payment terms
-- Bulk ordering
-- Approval workflow
-- Monthly statements
-
-### Admin Dashboard
-- Order management
-- Product catalog CRUD
-- Customer management
-- B2B approval queue
-- Inventory management
-- Delivery zone configuration
-- Analytics and reporting
-
-### Technical Features
-- **Offline-First:** Service workers + IndexedDB
-- **Real-Time:** WebSocket order updates
-- **Search:** PostgreSQL full-text search with fuzzy matching
-- **Security:** JWT authentication, bcrypt hashing, rate limiting
-- **Performance:** < 2s page load (4G), < 500ms API response (P95)
+- **Bilingual routing** — `/fr/*` (French LTR) and `/ar/*` (Arabic RTL)
+- **Home page** — hero banner, category grid, popular products
+- **Product catalog** — listing, detail pages, 20+ products in 5 categories
+- **Shopping cart** — add/remove, quantity, subtotal, localStorage persistence
+- **4-step checkout** — address → delivery slot → review → confirmation
+- **Admin dashboard** — `/admin` with mock login (admin@bellat.net / demo123)
+- **Mobile-first** — bottom nav, responsive grids, 44px touch targets
 
 ---
 
-## 🔒 Security
+## Documentation
 
-- TLS 1.3 encryption for all communications
-- bcrypt password hashing (cost factor 12)
-- JWT with RS256 asymmetric signing
-- CSRF protection (double-submit cookie)
-- Rate limiting (100 req/min public, 1,000 authenticated)
-- SQL injection prevention (Prisma ORM)
-- XSS prevention (CSP headers)
-- OWASP Top 10 compliance
-
----
-
-## 🌍 Localization
-
-### Supported Languages
-- **Arabic (AR):** Primary language with RTL layout
-- **French (FR):** Secondary language with LTR layout
-
-### Features
-- Dynamic language switching
-- RTL-aware layouts and components
-- Locale-specific formatting (dates, currency, numbers)
-- Arabic transliteration in search
-- Culturally appropriate UI/UX
+| Document | Purpose |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | Development guide for Claude Code sessions |
+| [.claude/QUICKSTART.md](.claude/QUICKSTART.md) | Developer setup and commands |
+| [.claude/SUMMARY.md](.claude/SUMMARY.md) | Project status and business rules reference |
+| [.claude/project-initialization.md](.claude/project-initialization.md) | Full architecture, DB schema, API design |
+| [.claude/TECH-DECISIONS.md](.claude/TECH-DECISIONS.md) | Why each technology was chosen |
+| [TODO.md](TODO.md) | 110-task development roadmap |
+| [docs/schema-prototype.sql](docs/schema-prototype.sql) | Database schema reference (from prototype) |
 
 ---
 
-## 📊 Success Metrics (First 6 Months)
+## Algerian Market Context
 
-| Metric | Target |
-|--------|--------|
-| Registered Users | 5,000 |
-| Monthly Active Users | 2,000 |
-| Orders per Month | 1,000 |
-| B2B Accounts | 100 |
-| Customer Satisfaction (NPS) | > 40 |
-| Order Fulfillment Rate | > 95% |
-| System Uptime | > 99.5% |
-| Page Load Time (4G) | < 2 seconds |
+- **Bilingual:** Arabic (RTL) primary, French (LTR) secondary
+- **Currency:** DZD (Algerian Dinar) — no decimal places
+- **Delivery zones:** 48 Wilayas (administrative divisions)
+- **Payment:** Cash on Delivery (~80%), B2B credit/invoicing
+- **Phone format:** +213 + 9 digits
 
 ---
 
-## 🤝 Contributing
+**Client:** Bellat Group (CVA) — Tessala-El-Merdja, Algeria — [bellat.net](https://bellat.net)
 
-This is a private project for Bellat Group. If you're a team member:
-
-1. Read the [Quick Start Guide](.claude/QUICKSTART.md)
-2. Follow the [Git Workflow](.claude/QUICKSTART.md#git-workflow)
-3. Ensure all tests pass before creating PRs
-4. Follow TypeScript and React best practices
-
----
-
-## 📜 License
-
-Copyright © 2026 Bellat Group (CVA - Conserverie de Viandes d'Algérie)
-
-This project is proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
-
----
-
-## 📞 Contact
-
-**Client:** Bellat Group (CVA)
-**Location:** Tessala-El-Merdja, Algeria
-**Website:** https://bellat.net
-**Social Media:**
-- Facebook: [@bellatalgerie](https://facebook.com/bellatalgerie)
-- Instagram: [@bellat_el_djazair](https://instagram.com/bellat_el_djazair)
-
-**Tagline:** "غذاؤك ترعاه أياد أمينة" (Your food is cared for by trustworthy hands)
-
----
-
-## 🙏 Acknowledgments
-
-- **Bellat Group** for 50+ years of quality meat products
-- **Development Team** for bringing this vision to life
-- **Algeria's Tech Community** for support and inspiration
-
----
-
-**Built with ❤️ for Algeria**
-
-**Last Updated:** January 8, 2026
+*"غذاؤك ترعاه أياد أمينة" (Your food is cared for by trustworthy hands)*

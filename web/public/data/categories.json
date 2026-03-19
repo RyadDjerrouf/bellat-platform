@@ -1,0 +1,37 @@
+[
+  {
+    "id": "kachir",
+    "name_fr": "Kachir",
+    "name_ar": "كشير",
+    "icon": "🥩",
+    "image": "/images/categories/kachir.jpg"
+  },
+  {
+    "id": "rotis",
+    "name_fr": "Rôtis",
+    "name_ar": "روتي",
+    "icon": "🍖",
+    "image": "/images/categories/rotis.jpg"
+  },
+  {
+    "id": "conserves",
+    "name_fr": "Conserves",
+    "name_ar": "معلبات",
+    "icon": "🥫",
+    "image": "/images/categories/conserves.jpg"
+  },
+  {
+    "id": "hot-dog",
+    "name_fr": "Hot Dog",
+    "name_ar": "هوت دوج",
+    "icon": "🌭",
+    "image": "/images/categories/hot-dog.jpg"
+  },
+  {
+    "id": "luncheon",
+    "name_fr": "Luncheon",
+    "name_ar": "لانشون",
+    "icon": "🍽️",
+    "image": "/images/categories/luncheon.jpg"
+  }
+]
