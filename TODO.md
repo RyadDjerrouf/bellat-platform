@@ -1,7 +1,7 @@
 # 📋 Bellat Digital Ordering Platform - Development Roadmap
 
-**Status:** 🟢 Phase 0 Complete | **Next:** Phase 1 - Backend Development
-**Last Updated:** March 18, 2026
+**Status:** 🟡 Phase 1 + Phase 2 + Phase 3 In Progress | **Next:** Delivery zones, Notifications, PWA/offline, B2B features
+**Last Updated:** March 20, 2026
 **Target Launch:** Q2 2026
 
 ---
@@ -11,13 +11,13 @@
 | Phase | Status | Progress | Notes |
 |-------|--------|----------|-------|
 | Phase 0: Foundation | ✅ Done | Core done | Monorepo + Docker + frontend prototype migrated |
-| Phase 1: Backend | 🟡 Ready to Start | 0/28 tasks | NestJS microservices, Prisma, real auth |
-| Phase 2: Frontend | 🔵 Partial | ~14/24 tasks | UI/routing/components done via prototype |
-| Phase 3: Admin | ⏸️ Blocked | 0/18 tasks | Needs real backend data |
+| Phase 1: Backend | 🟡 In Progress | ~26/32 tasks | Auth+refresh, Products, Orders+reorder, Inventory, Users/Addresses, Analytics done; Delivery+Notifications next |
+| Phase 2: Frontend | 🟡 In Progress | ~28/30 tasks | Order detail page, checkout→saved addresses, profile, addresses, header dropdown, all API wired; PWA/offline next |
+| Phase 3: Admin | 🟡 In Progress | ~13/18 tasks | Real auth, dashboard, orders+detail, products+create/edit/delete, inventory, customers list, analytics done |
 | Phase 4: Integrations | ⏸️ Blocked | 0/12 tasks | SMS, email, push |
 | Phase 5: QA & Launch | ⏸️ Blocked | 0/16 tasks | — |
 
-**Phase 2 detail:** UI foundation complete (bilingual routing, all customer pages, cart, 4-step checkout, components). Missing: PWA/service worker, Zustand + API layer, user account pages (login/register/profile/addresses/order history), recipe pages, real backend integration.
+**Phase 2 detail:** UI + API fully wired. All customer pages live against real backend. Order detail/tracking page done (5-step timeline). Checkout → saved addresses done. Remaining: PWA/service worker, recipe pages.
 
 ---
 
@@ -132,13 +132,14 @@
 
 ### 1.1 Shared Libraries & Database
 
-- [ ] **Prisma Schema Definition** `[Backend Lead]` `[L]`
-  - [ ] Define all 18 tables (users, products, orders, etc.)
-  - [ ] Add indexes (unique, foreign key, query optimization)
-  - [ ] Add full-text search indexes (pg_trgm)
-  - [ ] Write seed script (15 categories, sample products)
-  - **Acceptance:** `prisma migrate dev` creates schema, seed populates data
-  - **Reference:** See `.claude/project-initialization.md` § 4.2 Database Schema
+- [x] **Prisma Schema Definition** `[Backend Lead]` `[L]` ✅ Done
+  - [x] Define core tables (users, products, categories, orders, order_items, addresses)
+  - [x] Add indexes (unique, foreign key, query optimization)
+  - [ ] Add full-text search indexes (pg_trgm) — deferred to 1.4 Product Service
+  - [x] Write seed script (categories + sample products in `libs/database/prisma/seed.ts`)
+  - [x] `prisma migrate dev` runs — migration applied to Supabase
+  - **Note:** 6 core tables implemented (simplified from 18 in prototype SQL — enough for Phase 1)
+  - **Reference:** `libs/database/prisma/schema.prisma`
 
 - [ ] **Common Library** `[Backend]` `[M]`
   - [ ] Create `@bellat/common` package
@@ -156,38 +157,40 @@
 
 ### 1.2 API Gateway
 
-- [ ] **Gateway Setup** `[Backend]` `[M]`
-  - [ ] Create NestJS API Gateway application
-  - [ ] Configure routing to microservices
-  - [ ] Implement rate limiting (100 req/min public, 1,000 authenticated)
-  - [ ] Add CORS configuration (whitelist origins)
-  - [ ] Add request logging middleware
-  - **Acceptance:** Gateway routes requests to services
+- [x] **Gateway Setup** `[Backend]` `[M]` ✅ Done
+  - [x] Create NestJS API Gateway application (`apps/api-gateway`, port 3002)
+  - [x] Configure routing to microservices
+  - [x] Implement rate limiting (100 req/min via ThrottlerModule, global guard)
+  - [x] Add CORS configuration (localhost:3000, localhost:3001 whitelisted)
+  - [x] Add request logging middleware
+  - **Acceptance:** ✅ Gateway running, health check at GET `/api/health`
   - **Requirement:** NFR-SEC-005 (Rate limiting)
 
-- [ ] **OpenAPI Documentation** `[Backend]` `[S]`
-  - [ ] Set up Swagger/OpenAPI 3.0
-  - [ ] Auto-generate API docs from decorators
-  - [ ] Make docs accessible at `/api/docs`
-  - **Acceptance:** Swagger UI accessible, all endpoints documented
+- [x] **OpenAPI Documentation** `[Backend]` `[S]` ✅ Done
+  - [x] Set up Swagger/OpenAPI 3.0 (via `@nestjs/swagger`)
+  - [x] Auto-generate API docs from decorators
+  - [x] Accessible at `/api/docs` — BearerAuth configured
+  - **Acceptance:** ✅ Verified — all endpoints documented at http://localhost:3002/api/docs
 
 ### 1.3 Auth Service
 
-- [ ] **JWT Authentication** `[Backend]` `[L]`
-  - [ ] Implement JWT strategy (RS256)
-  - [ ] Implement token generation (24h access, 30d refresh)
-  - [ ] Implement token refresh endpoint
+- [~] **JWT Authentication** `[Backend]` `[L]` 🟡 Partial
+  - [x] Implement JWT strategy (HS256 — RS256 deferred to production hardening)
+  - [x] Implement token generation (15m access, 7d refresh)
+  - [x] Implement token refresh endpoint (`POST /api/auth/refresh`) — returns new access token
+  - [x] Frontend auto-refresh on 401 (`authFetch` wrapper + `tryRefresh` in `web/lib/api.ts`)
   - [ ] Implement session storage in Redis
   - [ ] Add account lockout (5 failed attempts)
-  - **Acceptance:** Login returns JWT, protected routes verify token
+  - **Acceptance:** ✅ Login returns JWT + refresh token, `JwtAuthGuard` protects routes, 401s auto-refresh
   - **Requirements:** FR-AUTH-002, NFR-SEC-003
 
-- [ ] **Registration & Login** `[Backend]` `[M]`
-  - [ ] POST `/auth/register` (email, phone, password)
-  - [ ] POST `/auth/login` (email/phone + password)
-  - [ ] Password hashing with bcrypt (cost factor 12)
-  - [ ] Input validation (phone: +213, email format, password complexity)
-  - **Acceptance:** Users can register and login
+- [x] **Registration & Login** `[Backend]` `[M]` ✅ Done
+  - [x] POST `/api/auth/register` (fullName, email, phoneNumber?, password)
+  - [x] POST `/api/auth/login` (email + password)
+  - [x] Password hashing with bcrypt (cost factor 12)
+  - [x] Input validation (phone: +213XXXXXXXXX, email format, password ≥8 chars)
+  - [x] Conflict errors (duplicate email/phone) return 409 — not 500
+  - **Acceptance:** ✅ Tested end-to-end — register, login, duplicate detection all verified
   - **Requirements:** FR-AUTH-001
 
 - [ ] **OTP Verification** `[Backend]` `[M]`
@@ -224,103 +227,77 @@
 
 ### 1.4 Product Service
 
-- [ ] **Product CRUD** `[Backend]` `[M]`
-  - [ ] GET `/products` (list with pagination, filters)
-  - [ ] GET `/products/:slug` (product details with variants)
-  - [ ] POST `/admin/products` (create product)
-  - [ ] PUT `/admin/products/:id` (update product)
-  - [ ] DELETE `/admin/products/:id` (soft delete)
-  - **Acceptance:** Products manageable via API
-  - **Requirements:** FR-CAT-001, FR-ADM-002
+- [x] **Product CRUD** `[Backend]` `[M]` ✅ Done
+  - [x] GET `/api/products` (list with pagination + category/stockStatus/search filters)
+  - [x] GET `/api/products/:id` (product details with category)
+  - [x] POST `/api/admin/products` (create — admin JWT required)
+  - [x] PUT `/api/admin/products/:id` (update — admin JWT required)
+  - [x] DELETE `/api/admin/products/:id` (soft delete — sets isActive=false)
+  - [x] RolesGuard + @Roles decorator for admin access control
+  - **Acceptance:** ✅ All routes tested — 401/403 correctly enforced, soft delete hides from public
 
-- [ ] **Category & Brand Management** `[Backend]` `[S]`
-  - [ ] GET `/categories` (list all 15 categories)
-  - [ ] GET `/categories/:slug/products` (products by category)
-  - [ ] GET `/brands` (list all brands)
-  - [ ] GET `/brands/:id/products` (products by brand)
-  - **Acceptance:** Categories and brands filterable
-  - **Requirements:** FR-CAT-001.1, FR-CAT-001.2
+- [x] **Category Management** `[Backend]` `[S]` ✅ Done
+  - [x] GET `/api/categories` (list all seeded categories)
+  - [x] GET `/api/categories/:id/products` (products by category, paginated)
+  - **Note:** Brands not in current schema (deferred — not a Bellat requirement for Phase 1)
 
-- [ ] **Full-Text Search** `[Backend]` `[L]`
-  - [ ] GET `/products/search?q=<query>`
-  - [ ] Implement PostgreSQL FTS with pg_trgm (fuzzy matching)
-  - [ ] Support Arabic transliteration ("kachir" → "كاشير")
-  - [ ] Return results in < 300ms
-  - [ ] Add autocomplete endpoint (top 5 suggestions)
-  - **Acceptance:** Search finds products with typos, Arabic works
-  - **Requirements:** FR-CAT-002, NFR-PERF-005
+- [~] **Full-Text Search** `[Backend]` `[L]` 🟡 Partial
+  - [x] GET `/api/products?q=<query>` — ILIKE search on nameFr + nameAr
+  - [ ] PostgreSQL FTS with pg_trgm (fuzzy matching / typo tolerance)
+  - [ ] Arabic transliteration support
+  - [ ] Autocomplete endpoint
+  - **Note:** Basic ILIKE search is live; pg_trgm upgrade deferred to Phase 1 polish
 
 - [ ] **Variant Management** `[Backend]` `[M]`
   - [ ] Support multiple variants per product (weight, pack size)
   - [ ] Independent pricing (retail_price, b2b_price)
   - [ ] Stock tracking per variant
-  - [ ] Price-per-kg calculation
-  - **Acceptance:** Variants have separate pricing and stock
-  - **Requirements:** FR-CAT-003
+  - **Note:** Current schema has single price + stockStatus per product — variants deferred
 
-- [ ] **Filtering & Sorting** `[Backend]` `[M]`
-  - [ ] Filter by category, brand, meat type, price range, availability
-  - [ ] Sort by: popularity, price (asc/desc), newest, name (A-Z)
-  - [ ] Remember user's last filter preferences (Redis)
-  - **Acceptance:** All filters and sorts work correctly
-  - **Requirements:** FR-CAT-002.5, FR-CAT-002.6, FR-CAT-002.7
+- [x] **Filtering & Sorting** `[Backend]` `[M]` ✅ Done
+  - [x] Filter by category, stockStatus, search query
+  - [x] Paginated results with meta (total, page, totalPages)
+  - [ ] Sort by: popularity, price, newest — deferred (defaulting to createdAt desc)
 
 ### 1.5 Order Service
 
-- [ ] **Cart Management** `[Backend]` `[L]`
-  - [ ] GET `/cart` (fetch user's cart)
-  - [ ] POST `/cart/items` (add item to cart)
-  - [ ] PATCH `/cart/items/:id` (update quantity)
-  - [ ] DELETE `/cart/items/:id` (remove item)
-  - [ ] Store cart in Redis + PostgreSQL
-  - [ ] Merge guest cart on login
-  - [ ] Validate stock availability on add
-  - **Acceptance:** Cart persists across sessions
-  - **Requirements:** FR-CART-001
+- [~] **Cart Management** `[Backend]` `[L]` 🟡 Deferred
+  - [ ] Backend cart (Redis + PostgreSQL) — deferred; frontend uses localStorage cart (React Context) which is fully working
+  - [ ] Merge guest cart on login — deferred
+  - **Note:** Checkout accepts items array directly — no separate cart API needed for Phase 1
 
-- [ ] **Checkout Flow** `[Backend]` `[XL]`
-  - [ ] POST `/orders` (create order from cart)
-  - [ ] Validate delivery address (zone exists)
-  - [ ] Calculate delivery fee based on zone
-  - [ ] Calculate slot surcharge (evening +200 DZD)
-  - [ ] Enforce minimum order amount per zone
-  - [ ] Reserve stock (increment reserved_quantity)
-  - [ ] Generate unique order number: `BLT-YYYYMMDD-XXXXX`
-  - [ ] Clear cart after order placed
-  - **Acceptance:** Orders created with correct totals, stock reserved
-  - **Requirements:** FR-CART-002, FR-CART-004, ORD-001, ORD-002
+- [x] **Checkout Flow** `[Backend]` `[XL]` ✅ Done
+  - [x] POST `/api/orders` — create order from items array
+  - [x] Validate all products exist and are not out_of_stock
+  - [x] Calculate delivery fee by wilaya (500 DZD Alger / 800 DZD other)
+  - [x] Generate unique order number: `BLT-YYYYMMDD-NNNNN`
+  - [x] Price snapshot (priceAtPurchase) captured at order time
+  - **Acceptance:** ✅ Tested — BLT-20260321-00001 created, subtotal/fee/total correct
+  - **Note:** Slot surcharge + min order amount deferred to delivery zone config (1.7)
 
-- [ ] **Order Lifecycle** `[Backend]` `[L]`
-  - [ ] Implement order state machine (Pending → Confirmed → Preparing → Ready → Out for Delivery → Delivered)
-  - [ ] PATCH `/admin/orders/:id/status` (transition to next state)
-  - [ ] Validate state transitions (can't skip states)
-  - [ ] Log all status changes with timestamp and user
-  - [ ] Send notifications on each state change
-  - **Acceptance:** Orders follow proper lifecycle
-  - **Requirements:** FR-ORD-002
+- [x] **Order Lifecycle** `[Backend]` `[L]` ✅ Done
+  - [x] State machine: pending → confirmed → preparing → out_for_delivery → delivered
+  - [x] PATCH `/api/admin/orders/:id/status` (validated transitions)
+  - [x] Invalid transitions return 400 with allowed states listed
+  - **Acceptance:** ✅ Tested — bad transitions blocked (confirmed → delivered = 400)
 
-- [ ] **Order History & Tracking** `[Backend]` `[M]`
-  - [ ] GET `/orders` (user's order history with filters)
-  - [ ] GET `/orders/:id` (order details with items)
-  - [ ] Display estimated delivery time
-  - [ ] Show driver info when Out for Delivery
-  - **Acceptance:** Users can view order history and track orders
-  - **Requirements:** FR-ORD-003
+- [x] **Order History & Tracking** `[Backend]` `[M]` ✅ Done
+  - [x] GET `/api/orders` — user's order history with status filter + pagination
+  - [x] GET `/api/orders/:id` — order details with items + product info
+  - [x] Users can only access their own orders (ForbiddenException on mismatch)
+  - **Acceptance:** ✅ Tested end-to-end
 
-- [ ] **Order Cancellation** `[Backend]` `[M]`
-  - [ ] PATCH `/orders/:id/cancel` (user cancellation)
-  - [ ] Allow cancel only if status = PENDING
-  - [ ] Release reserved stock on cancellation
-  - [ ] Send cancellation confirmation
-  - **Acceptance:** Users can cancel pending orders
-  - **Requirements:** FR-ORD-004, INV-006
+- [x] **Order Cancellation** `[Backend]` `[M]` ✅ Done
+  - [x] PATCH `/api/orders/:id/cancel` — cancels only if status = pending
+  - [x] Clear error message when cancelling a non-pending order
+  - **Acceptance:** ✅ Tested — double-cancel returns 400
 
-- [ ] **Reordering** `[Backend]` `[S]`
-  - [ ] POST `/orders/:id/reorder` (clone previous order)
-  - [ ] Check stock availability for all items
-  - [ ] Update prices to current pricing
-  - [ ] Notify of unavailable items
-  - **Acceptance:** Users can reorder with updated prices
+- [x] **Reordering** `[Backend]` `[S]` ✅ Done
+  - [x] POST `/api/orders/:id/reorder` — clones previous order at current prices
+  - [x] Validates stock availability for all items (reuses `create()` logic)
+  - [x] Prices updated to current catalog pricing (not historical snapshot)
+  - [ ] Notify of unavailable items — deferred (throws 422 if item unavailable)
+  - **Acceptance:** ✅ Backend done; frontend has "Recommander" button on delivered/cancelled orders
   - **Requirements:** FR-ORD-005
 
 - [ ] **B2B Credit Management** `[Backend]` `[M]`
@@ -333,32 +310,58 @@
 
 ### 1.6 Inventory Service
 
-- [ ] **Stock Management** `[Backend]` `[M]`
-  - [ ] GET `/admin/inventory` (view stock levels)
-  - [ ] PATCH `/admin/inventory/:variantId` (manual adjustment)
-  - [ ] Log all stock changes (audit trail)
-  - [ ] Calculate available_stock = stock_quantity - reserved_quantity
-  - **Acceptance:** Stock levels accurate, adjustments logged
+- [x] **Stock Management** `[Backend]` `[M]` ✅ Done
+  - [x] GET `/api/admin/inventory` (view stock levels, paginated, with summary counts)
+  - [x] PATCH `/api/admin/inventory/:id` (manual stockStatus adjustment)
+  - [x] POST `/api/admin/inventory/batch` (batch update via Prisma transaction)
+  - [x] GET `/api/admin/inventory/alerts` (low_stock + out_of_stock report)
+  - [ ] Log all stock changes (audit trail) — deferred
+  - **Acceptance:** ✅ Stock levels visible and adjustable via admin UI
   - **Requirements:** FR-INV-001
 
 - [ ] **Stock Alerts** `[Backend]` `[S]`
-  - [ ] Monitor stock levels (cron job every hour)
-  - [ ] Alert when stock < low_stock_threshold
-  - [ ] Auto-hide products when stock = 0
-  - [ ] "Notify me when available" subscription
+  - [ ] Monitor stock levels (cron job every hour) — deferred
+  - [ ] Auto-hide products when stock = 0 — deferred
+  - [ ] "Notify me when available" subscription — deferred
   - **Acceptance:** Low stock alerts sent to admins
   - **Requirements:** FR-INV-002
 
 - [ ] **Batch Import** `[Backend]` `[M]`
-  - [ ] POST `/admin/inventory/import` (CSV/Excel upload)
-  - [ ] Parse CSV format: `sku,stock_quantity,last_updated`
-  - [ ] Validate SKUs exist
-  - [ ] Update stock in batch
-  - [ ] Return import summary (success/failures)
+  - [ ] POST `/admin/inventory/import` (CSV/Excel upload) — deferred
   - **Acceptance:** Stock imported from CSV successfully
   - **Requirements:** FR-INV-001.2
 
-### 1.7 Delivery Service
+### 1.7 User Profile & Address Service
+
+- [x] **User Profile** `[Backend]` `[M]` ✅ Done
+  - [x] GET `/api/users/me` — return current user's profile (id, fullName, email, phoneNumber, role, createdAt)
+  - [x] PATCH `/api/users/me` — update fullName, phoneNumber; change password (requires currentPassword)
+  - [x] Password change validates current password with bcrypt before updating
+  - **Acceptance:** ✅ Profile editable; wrong current password returns 401
+
+- [x] **Saved Addresses** `[Backend]` `[M]` ✅ Done
+  - [x] GET `/api/users/me/addresses` — list addresses (default first)
+  - [x] POST `/api/users/me/addresses` — create address (max 10 per account, first is auto-default)
+  - [x] PATCH `/api/users/me/addresses/:id` — update address
+  - [x] DELETE `/api/users/me/addresses/:id` — delete (auto-promotes next to default)
+  - [x] PATCH `/api/users/me/addresses/:id/default` — set as default
+  - [x] Phone validation: +213XXXXXXXXX format (class-validator)
+  - **Acceptance:** ✅ Full address CRUD with default management
+
+- [x] **Admin User List** `[Backend]` `[S]` ✅ Done
+  - [x] GET `/api/admin/users` — paginated list of all users with order count, searchable by name/email
+  - **Acceptance:** ✅ Admin can search and view all customers
+
+### 1.8 Analytics Service
+
+- [x] **Platform Analytics** `[Backend]` `[M]` ✅ Done
+  - [x] GET `/api/admin/analytics` — total orders, total revenue (non-cancelled), orders by status, daily revenue last 30 days, top 5 products by revenue
+  - **Acceptance:** ✅ Analytics data available in admin dashboard
+
+### 1.9 Delivery Service
+> **Note:** Bellat is primarily B2B — delivery is free for all zones. Delivery zone configuration (per-wilaya fees, slot capacity) is deferred until B2C pricing is defined.
+
+
 
 - [ ] **Delivery Zone Management** `[Backend]` `[M]`
   - [ ] GET `/delivery/zones` (list all zones)
@@ -385,7 +388,7 @@
   - **Requirements:** FR-DEL-001
   - **Note:** Driver mobile app is OUT OF SCOPE (separate project)
 
-### 1.8 Notification Service
+### 1.10 Notification Service
 
 - [ ] **SMS Integration** `[Backend]` `[M]`
   - [ ] Integrate Algerian SMS gateway
@@ -441,11 +444,11 @@
   - [ ] Custom hooks: `useAuth`, `useCart`, `useOffline`
   - **Acceptance:** State persists across refreshes, syncs to backend on login
 
-- [ ] **API Service Layer** `[Frontend]` `[M]`
-  - [ ] Create API client with axios + base URL from env
-  - [ ] JWT token interceptor (attach access token, refresh on 401)
-  - [ ] Service functions: `authService`, `productService`, `orderService`
-  - **Acceptance:** All API calls work with proper auth headers
+- [x] **API Service Layer** `[Frontend]` `[M]` ✅ Done
+  - [x] API client in `web/lib/api.ts` (native fetch, no axios needed)
+  - [x] JWT auto-refresh on 401 via `authFetch()` wrapper
+  - [x] Functions: auth, products, categories, orders, inventory, users/addresses
+  - **Acceptance:** ✅ All API calls work with proper auth headers + silent refresh
 
 ### 2.2 PWA & Offline Capabilities
 
@@ -499,66 +502,72 @@
 - [x] **Checkout Pages** — 4 steps: address → delivery slot → review → order-success
 - [x] **Order Success Page** — mock confirmation with fake order ID
 
-- [ ] **Search Page** `[Frontend]` `[M]` — page exists at `/search` but filtering logic not implemented
-  - [ ] Wire up to backend search API (`/products/search?q=`)
-  - [ ] Autocomplete (top 5 suggestions)
-  - [ ] "No results" state with suggestions
-  - **Acceptance:** Search returns results in < 300ms
+- [~] **Search Page** `[Frontend]` `[M]` 🟡 Partial
+  - [x] Wired to backend search API (`GET /api/products?q=`) with 350ms debounce
+  - [x] Skeleton loading state while search is in progress
+  - [x] "No results" empty state
+  - [ ] Autocomplete (top 5 suggestions) — deferred
+  - **Acceptance:** ✅ Search returns live backend results; autocomplete deferred to pg_trgm upgrade
   - **Requirements:** FR-CAT-002, NFR-PERF-005
 
-- [ ] **Connect checkout to real backend** `[Frontend]` `[L]`
-  - [ ] Replace mock address entry with saved addresses from API
-  - [ ] Fetch real delivery zones and slot availability
-  - [ ] Submit order to `POST /orders` (not mock)
-  - [ ] Show real order number (`BLT-YYYYMMDD-XXXXX`)
-  - **Acceptance:** Orders created in database, stock reserved
+- [~] **Connect checkout to real backend** `[Frontend]` `[L]` 🟡 Partial
+  - [x] Replace mock address entry with saved addresses from API — auto-selects default, picker above form
+  - [ ] Fetch real delivery zones and slot availability — deferred (delivery service 1.7 not built)
+  - [x] Submit order to `POST /api/orders` (real backend, JWT auth, auto-refresh on 401)
+  - [x] Show real order number (`BLT-YYYYMMDD-XXXXX`) on order-success page
+  - **Acceptance:** ✅ Orders created in database; saved addresses + slot capacity deferred
   - **Requirements:** FR-CART-002, ORD-002
 
-### 2.5 User Account Pages — ❌ Not yet built
+### 2.5 User Account Pages 🟡 Mostly done
 
-- [ ] **Login/Register Page** `[Frontend]` `[M]`
-  - [ ] Login form (email/phone + password)
-  - [ ] Register form (name, phone, email, password)
-  - [ ] Social login buttons (Google, Facebook)
-  - [ ] OTP verification modal
-  - [ ] "Forgot Password" link
-  - [ ] B2B registration option
-  - **Acceptance:** Users can register/login
+- [~] **Login/Register Page** `[Frontend]` `[M]` 🟡 Partial
+  - [x] Login form (email + password) at `/[locale]/login`
+  - [x] Register form (name, phone optional, email, password) — mode toggle on same page
+  - [x] JWT + refresh token stored in localStorage (`bellat_token`, `bellat_refresh_token`)
+  - [x] Auth-aware Header (login/logout, orders link)
+  - [ ] Social login buttons (Google, Facebook) — deferred (OAuth not built)
+  - [ ] OTP verification modal — deferred
+  - [ ] "Forgot Password" link — deferred
+  - [ ] B2B registration option — deferred
+  - **Acceptance:** ✅ Users can register/login with email+password
   - **Requirements:** FR-AUTH-001, FR-AUTH-002
 
-- [ ] **Profile Page** `[Frontend]` `[S]`
-  - [ ] View/edit personal info
-  - [ ] Change password
-  - [ ] Delete account option
-  - **Acceptance:** Profile editable
+- [~] **Profile Page** `[Frontend]` `[S]` 🟡 Done (delete account deferred)
+  - [x] View/edit personal info (name, phone) at `/[locale]/profile`
+  - [x] Change password (verify current → set new) — backend validates current pw
+  - [ ] Delete account option — deferred
+  - **Acceptance:** ✅ Profile editable; delete account deferred
   - **Requirements:** FR-AUTH-004
 
-- [ ] **Addresses Page** `[Frontend]` `[M]`
-  - [ ] List of saved addresses
-  - [ ] Add new address form
-  - [ ] Edit/delete address
-  - [ ] Set default address
-  - [ ] Max 10 addresses validation
-  - **Acceptance:** Address CRUD works
+- [x] **Addresses Page** `[Frontend]` `[M]` ✅ Done
+  - [x] List of saved addresses (default highlighted) at `/[locale]/addresses`
+  - [x] Add new address form (48 wilaya dropdown, +213 phone validation)
+  - [x] Delete address (auto-promotes next to default)
+  - [x] Set default address (clears other defaults)
+  - [x] Max 10 addresses validation (backend enforces)
+  - [x] Backend: full CRUD at `GET/POST /api/users/me/addresses`, `PATCH/DELETE /:id`, `PATCH /:id/default`
+  - [ ] Edit existing address — deferred (add only for now)
+  - **Acceptance:** ✅ Address add/delete/default-set works end-to-end
   - **Requirements:** FR-AUTH-004.1
 
-- [ ] **Order History Page** `[Frontend]` `[M]`
-  - [ ] List of past orders (paginated)
-  - [ ] Filter by status, date range
-  - [ ] Display order status badge
-  - [ ] Click to view order details
-  - [ ] Reorder button
-  - **Acceptance:** Order history displays correctly
+- [x] **Order History Page** `[Frontend]` `[M]` ✅ Done
+  - [x] List of past orders (paginated, real API `GET /api/orders`)
+  - [x] Display order status badge (bilingual, color-coded)
+  - [x] Cancel button for pending orders (PATCH `/api/orders/:id/cancel`)
+  - [x] Reorder button for delivered/cancelled orders (POST `/api/orders/:id/reorder`)
+  - [x] Order ID links to detail page (`/[locale]/orders/[id]`)
+  - [ ] Filter by status, date range — deferred
+  - **Acceptance:** ✅ Order history shows real data with cancel + reorder + detail link
   - **Requirements:** FR-AUTH-004.4, FR-ORD-005
 
-- [ ] **Order Detail/Tracking Page** `[Frontend]` `[M]`
-  - [ ] Order timeline (status progression)
-  - [ ] Order items with quantities
-  - [ ] Delivery info (address, date, slot)
-  - [ ] Driver info (when out for delivery)
-  - [ ] Cancel order button (if allowed)
-  - [ ] Contact support button
-  - **Acceptance:** Real-time order tracking works
+- [x] **Order Detail/Tracking Page** `[Frontend]` `[M]` ✅ Done
+  - [x] 5-step status timeline (Reçue → Confirmée → Préparation → En livraison → Livrée), bilingual
+  - [x] Order items list with line totals, subtotal, delivery fee, total
+  - [x] Delivery info card (address, date, time slot, payment method)
+  - [x] Cancel order button (visible only for pending orders)
+  - [ ] Driver info (when out for delivery) — deferred (driver app out of scope)
+  - [ ] Contact support button — deferred
+  - **Acceptance:** ✅ Order tracking page live at `/[locale]/orders/[id]`
   - **Requirements:** FR-ORD-003
 
 - [ ] **Favorites Page** `[Frontend]` `[S]`
@@ -607,81 +616,81 @@
 
 ### 3.1 Admin Dashboard Setup
 
-- [x] **Admin skeleton built** — `/admin/login`, `/admin/dashboard`, `/admin/orders`, `/admin/products` exist in `/web/app/admin/` (display-only, mock login: admin@bellat.net / demo123)
+- [x] **Admin skeleton built** — `/admin/login`, `/admin/dashboard`, `/admin/orders`, `/admin/products` exist in `/web/app/admin/`
 
-- [ ] **Wire up real auth** `[Frontend]` `[M]`
-  - [ ] Replace mock login with real JWT auth (`POST /auth/login`)
-  - [ ] Protect all `/admin/*` routes (redirect if not ADMIN role)
-  - [ ] Add session persistence (httpOnly cookie)
-  - **Acceptance:** Only authenticated admins can access dashboard
+- [x] **Wire up real auth** `[Frontend]` `[M]` ✅ Done
+  - [x] Real JWT login (`POST /api/auth/login`) with role=admin check
+  - [x] All `/admin/*` routes protected — redirect to `/admin/login` if no token
+  - [x] Token stored as `bellat_admin_token` in localStorage (httpOnly cookie deferred to production)
+  - **Acceptance:** ✅ Only admin JWT holders can access dashboard
 
-- [ ] **Dashboard Home** `[Frontend]` `[M]`
-  - [ ] KPI cards (new orders, daily revenue, monthly revenue)
-  - [ ] Recent orders table (last 10)
-  - [ ] Sales chart (daily/weekly/monthly)
-  - [ ] Peak hours heatmap
-  - [ ] Top products list
-  - **Acceptance:** Dashboard shows live data
+- [~] **Dashboard Home** `[Frontend]` `[M]` 🟡 Partial
+  - [x] KPI cards: total orders, revenue, pending orders, low-stock/out-of-stock
+  - [x] Recent 5 orders table (real data, customer name, amount, status)
+  - [x] Inventory alert link (→ /admin/inventory)
+  - [ ] Sales chart (daily/weekly/monthly) — deferred (needs analytics endpoint)
+  - [ ] Peak hours heatmap — deferred
+  - [ ] Top products list — deferred
+  - **Acceptance:** ✅ Dashboard shows live KPI data; charts deferred
   - **Requirements:** FR-ADM-001
 
 ### 3.2 Order Management
 
-- [ ] **Order List Page** `[Frontend]` `[L]`
-  - [ ] Table with all orders (paginated)
-  - [ ] Tabs: All, New, In Progress, Delivered, Cancelled
-  - [ ] Search by order number or customer
-  - [ ] Date range filter
-  - [ ] Zone filter
-  - [ ] Bulk actions (export to Excel)
-  - [ ] Highlight urgent orders (same-day delivery)
-  - **Acceptance:** Orders searchable and filterable
+- [~] **Order List Page** `[Frontend]` `[L]` 🟡 Partial
+  - [x] Table with all orders (paginated, real API `GET /api/admin/orders`)
+  - [x] Status filter tabs: All, En attente, Confirmé, Préparation, En livraison, Livré, Annulé
+  - [x] Inline status advancement button (→ next state)
+  - [x] Shows customer name, wilaya, total
+  - [ ] Search by order number or customer — deferred
+  - [ ] Date range filter, zone filter — deferred
+  - [ ] Bulk export to Excel — deferred
+  - **Acceptance:** ✅ Orders list live with status management; search/export deferred
   - **Requirements:** FR-ADM-001
 
-- [ ] **Order Detail Page** `[Frontend]` `[M]`
-  - [ ] Customer information
-  - [ ] Order items with quantities and prices
-  - [ ] Delivery address with map link
-  - [ ] Payment status
-  - [ ] Status change dropdown
-  - [ ] Driver assignment dropdown
-  - [ ] Internal notes field
-  - [ ] Order history/timeline
-  - [ ] Print invoice button
-  - **Acceptance:** Order fully manageable
+- [x] **Order Detail Page** `[Frontend]` `[M]` ✅ Done
+  - [x] Customer information card (name, email, phone)
+  - [x] Order items table with quantities, unit price, line total, subtotal, delivery fee, total
+  - [x] Delivery address card (name, address, commune, wilaya, phone)
+  - [x] Delivery date + time slot
+  - [x] Status advance button (→ next state, with label)
+  - [ ] Driver assignment dropdown — deferred (driver app out of scope)
+  - [ ] Internal notes field — deferred
+  - [ ] Print invoice button — deferred
+  - **Acceptance:** ✅ Order fully visible and status-advanceable from detail page
   - **Requirements:** FR-ADM-001
 
 ### 3.3 Product Management
 
-- [ ] **Product List Page** `[Frontend]` `[M]`
-  - [ ] Table with all products
-  - [ ] Search by name or SKU
-  - [ ] Filter by category, brand, stock status
-  - [ ] Toggle active/inactive
-  - [ ] Bulk import/export (CSV)
-  - [ ] Add product button
-  - **Acceptance:** Products searchable and manageable
+- [x] **Product List Page** `[Frontend]` `[M]` ✅ Done
+  - [x] Table with all products (real API via `GET /api/admin/inventory`)
+  - [x] Inline stock status update per row (select dropdown → PATCH `/api/admin/inventory/:id`)
+  - [x] "Ajouter un produit" button → `/admin/products/new`
+  - [x] Edit icon per row → `/admin/products/[id]/edit`
+  - [x] Delete (soft-deactivate) icon per row with confirm dialog
+  - [ ] Search by name — deferred
+  - [ ] Filter by category, stock status — deferred (use Inventory page for now)
+  - **Acceptance:** ✅ Products fully manageable (list, create, edit, deactivate)
   - **Requirements:** FR-ADM-002
 
-- [ ] **Product Edit Page** `[Frontend]` `[L]`
-  - [ ] Form with all fields (name FR/AR, description, category, brand)
-  - [ ] Image upload (multiple, drag to reorder)
-  - [ ] Variants table (SKU, weight, prices, stock)
-  - [ ] Nutritional info section
-  - [ ] Halal certification toggle
-  - [ ] Active/featured toggles
-  - [ ] Save button
-  - **Acceptance:** Products editable with images
+- [x] **Product Create/Edit Page** `[Frontend]` `[L]` ✅ Done
+  - [x] `/admin/products/new` — create form with all fields
+  - [x] `/admin/products/[id]/edit` — edit form pre-filled from API
+  - [x] Fields: ID, name FR/AR, description FR/AR, category dropdown (from API), price, unit, stock status, image URL
+  - [x] Backend: `POST /api/admin/products`, `PUT /api/admin/products/:id`, `DELETE /api/admin/products/:id`
+  - [ ] Image upload (file picker, drag-to-reorder) — deferred (URL input used for now)
+  - **Acceptance:** ✅ Products creatable and editable via admin UI
   - **Requirements:** FR-ADM-002
 
 ### 3.4 Customer Management
 
-- [ ] **Customer List Page** `[Frontend]` `[M]`
-  - [ ] Table with all customers
-  - [ ] Filter by type (B2C, B2B), status
-  - [ ] Search by name, email, phone
-  - [ ] View order history button
-  - [ ] Edit customer button
-  - **Acceptance:** Customers searchable
+- [x] **Customer List Page** `[Frontend]` `[M]` ✅ Done
+  - [x] Table with all customers (name, email, phone, role, order count, signup date)
+  - [x] Live search by name or email (debounced 350ms)
+  - [x] Backend: `GET /api/admin/users` (paginated, searchable, includes `_count.orders`)
+  - [ ] Filter by type (B2C, B2B) — deferred (no B2B roles yet)
+  - [ ] View order history button — deferred
+  - [ ] Edit customer button — deferred
+  - **Acceptance:** ✅ Customers listed and searchable
   - **Requirements:** FR-ADM-003
 
 - [ ] **B2B Approval Queue** `[Frontend]` `[L]`
@@ -709,23 +718,15 @@
 
 ### 3.5 Inventory Management
 
-- [ ] **Inventory List Page** `[Frontend]` `[M]`
-  - [ ] Table with all product variants
-  - [ ] Show SKU, product name, stock, reserved, available
-  - [ ] Low stock warnings (red row)
-  - [ ] Manual adjustment button
-  - [ ] Import stock CSV button
-  - **Acceptance:** Stock levels visible
-  - **Requirements:** FR-ADM-002
-
-- [ ] **Stock Adjustment Modal** `[Frontend]` `[S]`
-  - [ ] Current stock display
-  - [ ] Adjustment input (+/-)
-  - [ ] Reason dropdown
-  - [ ] Notes field
-  - [ ] Confirm button
-  - **Acceptance:** Stock adjustable with audit log
-  - **Requirements:** FR-INV-001.6
+- [~] **Inventory Page** `[Frontend]` `[M]` 🟡 Partial
+  - [x] Full inventory list at `/admin/inventory` with summary cards (in stock / low / out)
+  - [x] Filter tabs: Tous / Faible stock / Rupture
+  - [x] Inline stock status select per product
+  - [x] Backend: `GET /api/admin/inventory`, `PATCH /api/admin/inventory/:id`, `POST /api/admin/inventory/batch`, `GET /api/admin/inventory/alerts`
+  - [ ] Import stock CSV button — deferred
+  - [ ] Audit log for stock changes — deferred (no StockLog model)
+  - **Acceptance:** ✅ Stock levels visible and editable; CSV + audit log deferred
+  - **Requirements:** FR-ADM-002, FR-INV-001
 
 ### 3.6 Delivery Management
 
@@ -755,15 +756,16 @@
 
 ### 3.7 Analytics & Reporting
 
-- [ ] **Sales Report Page** `[Frontend]` `[M]`
-  - [ ] Date range selector
-  - [ ] Revenue chart (daily/weekly/monthly)
-  - [ ] Orders count
-  - [ ] Average order value
-  - [ ] Top products table (by revenue and quantity)
-  - [ ] Sales by category pie chart
-  - [ ] B2C vs B2B breakdown
-  - [ ] Export to PDF/Excel button
+- [~] **Sales Report Page** `[Frontend]` `[M]` 🟡 Partial
+  - [x] Revenue chart (daily — last 30 days bar chart at `/admin/analytics`)
+  - [x] Orders count + total revenue KPI cards
+  - [x] Top products table (by revenue, top 5)
+  - [x] Orders by status breakdown
+  - [x] Backend: `GET /api/admin/analytics` (AnalyticsService — daily revenue, top products, status breakdown)
+  - [ ] Date range selector — deferred
+  - [ ] Sales by category pie chart — deferred
+  - [ ] B2C vs B2B breakdown — deferred (no B2B roles yet)
+  - [ ] Export to PDF/Excel button — deferred
   - **Acceptance:** Reports generate correctly
   - **Requirements:** FR-ADM-004
 

@@ -1,5 +1,6 @@
 import { Inter } from 'next/font/google';
 import { CartProvider } from '@/context/CartContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -34,6 +35,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     <html lang={locale} dir={isRTL ? 'rtl' : 'ltr'}>
       <body className={`${inter.variable} font-sans antialiased bg-gray-50`}>
         <NextIntlClientProvider messages={messages} locale={locale}>
+          <AuthProvider>
           <CartProvider>
             <div className="min-h-screen flex flex-col">
               <Header />
@@ -45,6 +47,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             </div>
             <Toaster position="top-center" />
           </CartProvider>
+          </AuthProvider>
         </NextIntlClientProvider>
       </body>
     </html>

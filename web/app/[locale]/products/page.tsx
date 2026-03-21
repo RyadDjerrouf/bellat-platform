@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { useParams } from 'next/navigation';
 import type { Product } from '@/types/product';
 import type { Category } from '@/types/category';
+import { fetchProducts, fetchCategories } from '@/lib/api';
 
 // This is the main products listing page that shows all available products
 // with category filtering
@@ -18,28 +19,15 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load products and categories data
+  // Load products and categories from real API
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [productsRes, categoriesRes] = await Promise.all([
-          fetch('/data/products.json'),
-          fetch('/data/categories.json'),
-        ]);
-
-        const productsData = await productsRes.json();
-        const categoriesData = await categoriesRes.json();
-
+    Promise.all([fetchProducts(), fetchCategories()])
+      .then(([productsData, categoriesData]) => {
         setProducts(productsData);
         setCategories(categoriesData);
-      } catch (error) {
-        console.error('Failed to load products:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+      })
+      .catch((err) => console.error('Failed to load products:', err))
+      .finally(() => setIsLoading(false));
   }, []);
 
   // Filter products based on selected category

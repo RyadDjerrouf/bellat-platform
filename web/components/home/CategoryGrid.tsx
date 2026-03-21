@@ -4,15 +4,8 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useTranslations, useLocale } from 'next-intl';
 import { useEffect, useState } from 'react';
-
-interface Category {
-  id: string;
-  name_fr: string;
-  name_ar: string;
-  icon: string;
-  description_fr: string;
-  description_ar: string;
-}
+import { fetchCategories } from '@/lib/api';
+import type { Category } from '@/types/category';
 
 export function CategoryGrid() {
   const t = useTranslations('Common');
@@ -21,19 +14,10 @@ export function CategoryGrid() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const response = await fetch('/data/categories.json');
-        const data = await response.json();
-        setCategories(data);
-      } catch (error) {
-        console.error('Failed to load categories:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCategories();
+    fetchCategories()
+      .then(setCategories)
+      .catch((err) => console.error('Failed to load categories:', err))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {

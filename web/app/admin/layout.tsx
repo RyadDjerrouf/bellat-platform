@@ -4,9 +4,12 @@ import '../globals.css';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Package, ShoppingCart, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, LogOut, BarChart2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast, Toaster } from 'sonner';
+
+const ADMIN_TOKEN_KEY = 'bellat_admin_token';
+const ADMIN_REFRESH_KEY = 'bellat_admin_refresh_token';
 
 // This is the layout for the admin section. It acts as a protected route
 // by checking if the user is authenticated.
@@ -22,7 +25,7 @@ export default function AdminLayout({
     if (typeof window === 'undefined') {
       return { isLoggedIn: false, isLoading: true };
     }
-    const loggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
+    const loggedIn = !!localStorage.getItem(ADMIN_TOKEN_KEY);
     return { isLoggedIn: loggedIn, isLoading: false };
   });
 
@@ -35,7 +38,8 @@ export default function AdminLayout({
 
   // Handle admin logout
   const handleLogout = () => {
-    localStorage.removeItem('isAdminLoggedIn');
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_REFRESH_KEY);
     setAuthState({ isLoggedIn: false, isLoading: false });
     toast.info('Déconnexion réussie.');
     router.push('/admin/login');
@@ -82,8 +86,26 @@ export default function AdminLayout({
             </li>
             <li>
               <Link href="/admin/products" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
-                <Package className="h-5 w-5 group-hover:text-green-600" /> 
+                <Package className="h-5 w-5 group-hover:text-green-600" />
                 <span className="font-medium">Produits</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/inventory" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <BarChart2 className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Inventaire</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/customers" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <Users className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Clients</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/analytics" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <BarChart2 className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Analytique</span>
               </Link>
             </li>
           </ul>

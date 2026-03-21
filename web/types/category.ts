@@ -4,4 +4,6 @@ export type Category = {
   name_ar: string;
   icon: string;
   image: string;
+  description_fr?: string;
+  description_ar?: string;
 };

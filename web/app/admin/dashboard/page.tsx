@@ -1,73 +1,68 @@
+"use client";
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { getMockOrders } from '@/lib/data/mock-orders';
-import Link from 'next/link';
-import { format } from 'date-fns';
 import { Badge } from '@/components/ui/Badge';
-import { ShoppingCart, DollarSign, Clock, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { ShoppingCart, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { fetchAdminOrders, fetchAdminInventory, type AdminOrder } from '@/lib/api';
 
-// This is the Admin Dashboard page. It's a Server Component that fetches
-// mock data to display an overview of the platform's activity.
-export default async function AdminDashboardPage() {
-  // Fetch all mock orders.
-  const orders = await getMockOrders();
+const ADMIN_TOKEN_KEY = 'bellat_admin_token';
 
-  // Static metrics as per the functional specification.
-  const ordersToday = 12;
-  const revenueToday = 15240;
-  const pendingOrders = 5;
+const STATUS_LABELS: Record<string, { label: string; variant: 'warning' | 'info' | 'success' | 'danger' | 'default' }> = {
+  pending:          { label: 'En attente',    variant: 'warning' },
+  confirmed:        { label: 'Confirmé',      variant: 'info' },
+  preparing:        { label: 'Préparation',   variant: 'info' },
+  out_for_delivery: { label: 'En livraison',  variant: 'warning' },
+  delivered:        { label: 'Livré',         variant: 'success' },
+  cancelled:        { label: 'Annulé',        variant: 'danger' },
+};
 
-  // Get the 5 most recent orders for the "Recent Orders" table.
-  // Sort by date (newest first) and take the first 5.
-  const recentOrders = orders
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+export default function AdminDashboardPage() {
+  const [recentOrders, setRecentOrders] = useState<AdminOrder[]>([]);
+  const [summary, setSummary] = useState({ total: 0, pending: 0, revenue: 0, lowStock: 0, outOfStock: 0 });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Helper function to get status badge variant based on order status.
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'pending': return 'warning';
-      case 'confirmed': return 'info';
-      case 'delivered': return 'success';
-      case 'cancelled': return 'danger';
-      default: return 'default';
-    }
-  };
+  useEffect(() => {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!token) return;
 
-  // Helper function to translate order status for display.
-  const translateStatus = (status: string) => {
-    switch (status) {
-      case 'pending': return '⏳ En attente';
-      case 'confirmed': return '✓ Confirmé';
-      case 'preparing': return '📦 En préparation';
-      case 'out_for_delivery': return '🚚 En livraison';
-      case 'delivered': return '✅ Livré';
-      case 'cancelled': return '❌ Annulé';
-      default: return status;
-    }
-  };
+    Promise.all([
+      fetchAdminOrders(token, { page: 1 }),
+      fetchAdminInventory(token, { limit: 1 }),
+    ]).then(([ordersRes, inventoryRes]) => {
+      const orders = ordersRes.data;
+      const pending = orders.filter((o) => o.status === 'pending').length;
+      const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
+      setRecentOrders(orders.slice(0, 5));
+      setSummary({
+        total: ordersRes.meta.total,
+        pending,
+        revenue,
+        lowStock: inventoryRes.summary.lowStock,
+        outOfStock: inventoryRes.summary.outOfStock,
+      });
+    }).finally(() => setIsLoading(false));
+  }, []);
+
+  const formatDate = (iso: string) =>
+    new Intl.DateTimeFormat('fr-DZ', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
 
   return (
     <div>
-      {/* Header with gradient */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">Tableau de bord</h1>
         <p className="text-gray-600">Vue d&apos;ensemble de votre activité</p>
       </div>
 
-      {/* Modern Stats Cards with icons and gradients */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Orders Card */}
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-blue-500/10 to-transparent rounded-bl-[100px]"></div>
-          <CardContent className="p-6 relative">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-2">Commandes aujourd&apos;hui</p>
-                <p className="text-4xl font-bold text-gray-900">{ordersToday}</p>
-                <div className="flex items-center gap-1 mt-2 text-green-600 text-sm font-medium">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>+12% vs hier</span>
-                </div>
+                <p className="text-sm font-medium text-gray-600 mb-2">Total commandes</p>
+                <p className="text-4xl font-bold text-gray-900">{isLoading ? '—' : summary.total}</p>
               </div>
               <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                 <ShoppingCart className="h-6 w-6 text-white" />
@@ -76,15 +71,13 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Revenue Card */}
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-green-500/10 to-transparent rounded-bl-[100px]"></div>
-          <CardContent className="p-6 relative">
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-2">Revenus aujourd&apos;hui</p>
-                <p className="text-4xl font-bold text-gray-900">{revenueToday.toLocaleString()}</p>
-                <p className="text-sm text-gray-500 mt-2">DZD</p>
+                <p className="text-sm font-medium text-gray-600 mb-2">Revenus (total)</p>
+                <p className="text-3xl font-bold text-gray-900">{isLoading ? '—' : summary.revenue.toLocaleString('fr-DZ')}</p>
+                <p className="text-sm text-gray-500 mt-1">DZD</p>
               </div>
               <div className="w-12 h-12 bg-linear-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
                 <DollarSign className="h-6 w-6 text-white" />
@@ -93,15 +86,15 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Pending Orders Card */}
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-amber-500/10 to-transparent rounded-bl-[100px]"></div>
-          <CardContent className="p-6 relative">
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-2">Commandes en attente</p>
-                <p className="text-4xl font-bold text-gray-900">{pendingOrders}</p>
-                <p className="text-sm text-amber-600 mt-2 font-medium">Nécessite attention</p>
+                <p className="text-sm font-medium text-gray-600 mb-2">En attente</p>
+                <p className="text-4xl font-bold text-gray-900">{isLoading ? '—' : summary.pending}</p>
+                {!isLoading && summary.pending > 0 && (
+                  <p className="text-sm text-amber-600 mt-1 font-medium">Nécessite attention</p>
+                )}
               </div>
               <div className="w-12 h-12 bg-linear-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Clock className="h-6 w-6 text-white" />
@@ -109,20 +102,36 @@ export default async function AdminDashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-2">Stock faible / épuisé</p>
+                <p className="text-4xl font-bold text-gray-900">
+                  {isLoading ? '—' : `${summary.lowStock} / ${summary.outOfStock}`}
+                </p>
+                <Link href="/admin/inventory" className="text-xs text-red-600 mt-1 hover:underline">
+                  Gérer l&apos;inventaire →
+                </Link>
+              </div>
+              <div className="w-12 h-12 bg-linear-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                <AlertTriangle className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Modern Recent Orders Table */}
+      {/* Recent Orders Table */}
       <Card className="border-0 shadow-lg">
         <CardHeader className="border-b bg-linear-to-r from-gray-50 to-white px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl font-bold text-gray-900">Commandes récentes</CardTitle>
-              <p className="text-sm text-gray-600 mt-1">Dernières transactions de vos clients</p>
+              <p className="text-sm text-gray-600 mt-1">Dernières transactions</p>
             </div>
-            <Link
-              href="/admin/orders"
-              className="text-green-600 hover:text-green-700 text-sm font-medium transition-colors"
-            >
+            <Link href="/admin/orders" className="text-green-600 hover:text-green-700 text-sm font-medium">
               Voir tout →
             </Link>
           </div>
@@ -132,55 +141,45 @@ export default async function AdminDashboardPage() {
             <table className="min-w-full">
               <thead className="bg-gray-50/50">
                 <tr>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    N° Commande
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Montant
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Statut
-                  </th>
+                  {['N° Commande', 'Client', 'Date', 'Montant', 'Statut'].map((h) => (
+                    <th key={h} className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {recentOrders.map((order, index) => (
-                  <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <Link
-                        href={`/admin/orders/${order.id}`}
-                        className="text-sm font-semibold text-green-600 hover:text-green-700 transition-colors"
-                      >
-                        {order.id}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-linear-to-br from-gray-200 to-gray-300 flex items-center justify-center mr-3 text-gray-700 font-semibold text-sm">
-                          {order.customer_name.charAt(0)}
+                {isLoading ? (
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i}>
+                      {[...Array(5)].map((_, j) => (
+                        <td key={j} className="px-6 py-5">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : recentOrders.map((order) => {
+                  const s = STATUS_LABELS[order.status] ?? { label: order.status, variant: 'default' as const };
+                  return (
+                    <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-5 whitespace-nowrap font-mono text-sm font-semibold text-green-700">{order.id}</td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-700">
+                            {order.customer.fullName.charAt(0)}
+                          </div>
+                          <span className="text-sm text-gray-900">{order.customer.fullName}</span>
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{order.customer_name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">
-                      {format(new Date(order.date), 'dd/MM/yyyy')}
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <span className="text-sm font-semibold text-gray-900">{order.total.toLocaleString()} DZD</span>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <Badge variant={getStatusVariant(order.status)} className="font-medium">
-                        {translateStatus(order.status)}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600">{formatDate(order.createdAt)}</td>
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        {Number(order.total).toLocaleString('fr-DZ')} DZD
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <Badge variant={s.variant}>{s.label}</Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

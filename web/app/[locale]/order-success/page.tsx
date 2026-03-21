@@ -1,44 +1,48 @@
 "use client";
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
+import { useSearchParams } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
-// Generate order number function
-const generateOrderNumber = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const randomId = String(Math.floor(Math.random() * 10000)).padStart(5, '0');
-  return `BLT-${year}${month}${day}-${randomId}`;
-};
-
-// This is the Order Success page, shown after a user "confirms" their order.
 export default function OrderSuccessPage() {
-  // State to hold the randomly generated fake order number.
-  const [orderNumber] = useState(generateOrderNumber);
+  const searchParams = useSearchParams();
+  const locale = useLocale();
+  const orderId = searchParams.get('orderId');
 
   return (
     <div className="container mx-auto px-4 py-12 text-center">
       <CheckCircle2 className="mx-auto h-24 w-24 text-green-500" />
-      <h1 className="mt-6 text-2xl font-bold">Commande confirmée!</h1>
+
+      <h1 className="mt-6 text-2xl font-bold">
+        {locale === 'ar' ? 'تم تأكيد طلبك!' : 'Commande confirmée !'}
+      </h1>
       <p className="mt-2 text-gray-500">
-        Merci pour votre confiance. Votre commande est en cours de préparation.
+        {locale === 'ar'
+          ? 'شكراً لثقتك بنا. طلبك قيد التحضير.'
+          : 'Merci pour votre confiance. Votre commande est en cours de préparation.'}
       </p>
-      
-      {/* Display the fake order number once it's generated */}
-      {orderNumber && (
+
+      {orderId && (
         <div className="mt-8 p-4 inline-block bg-gray-100 rounded-lg">
-          <p className="text-sm">Numéro de commande:</p>
-          <p className="font-bold text-lg">{orderNumber}</p>
+          <p className="text-sm text-gray-500">
+            {locale === 'ar' ? 'رقم الطلب:' : 'Numéro de commande :'}
+          </p>
+          <p className="font-bold text-lg font-mono">{orderId}</p>
         </div>
       )}
 
-      <div className="mt-8">
-        <Link href="/">
-          <Button>Retour à l&apos;accueil</Button>
+      <div className="mt-8 flex justify-center gap-4">
+        <Link href={`/${locale}/orders`}>
+          <Button variant="secondary">
+            {locale === 'ar' ? 'عرض طلباتي' : 'Voir mes commandes'}
+          </Button>
+        </Link>
+        <Link href={`/${locale}`}>
+          <Button>
+            {locale === 'ar' ? 'العودة للرئيسية' : "Retour à l'accueil"}
+          </Button>
         </Link>
       </div>
     </div>

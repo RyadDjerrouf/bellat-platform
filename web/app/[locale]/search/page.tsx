@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -8,33 +8,17 @@ import { ProductCard } from '@/components/products/ProductCard';
 import { ProductCardSkeleton } from '@/components/products/ProductCardSkeleton';
 import { usePathname } from 'next/navigation';
 import { Product } from '@/types/product';
+import { fetchProducts } from '@/lib/api';
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Extract locale from pathname
   const pathname = usePathname();
   const locale = pathname.split('/')[1] || 'fr';
-
-  useEffect(() => {
-    // Load products from public JSON file
-    const loadProducts = async () => {
-      try {
-        const response = await fetch('/data/products.json');
-        const data = await response.json();
-        setProducts(data);
-      } catch (error) {
-        console.error('Failed to load products:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, []);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -42,31 +26,23 @@ export default function SearchPage() {
       return;
     }
 
-    const filtered = products.filter(
-      (product) =>
-        product.name_fr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.name_ar.includes(searchQuery) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredProducts(filtered);
-  }, [searchQuery, products]);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const results = await fetchProducts({ q: searchQuery.trim() });
+        setFilteredProducts(results);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 350);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
 
   const handleClearSearch = () => {
     setSearchQuery('');
   };
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="h-12 bg-gray-200 rounded mb-8 animate-pulse"></div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
-            <ProductCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -116,7 +92,13 @@ export default function SearchPage() {
       </div>
 
       {/* Results Grid */}
-      {searchQuery && filteredProducts.length > 0 ? (
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : searchQuery && filteredProducts.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredProducts.map((product) => (
             <ProductCard key={product.id} product={product} locale={locale} />

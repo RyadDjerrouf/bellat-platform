@@ -1,9 +1,11 @@
 "use client";
 
 import Link from 'next/link';
-import { Search, ShoppingCart } from 'lucide-react';
+import { Search, ShoppingCart, User, LogOut, ChevronDown, Package, MapPin } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { LocaleSwitcher } from './LocaleSwitcher';
 import { useTranslations, useLocale } from 'next-intl';
 
@@ -11,6 +13,21 @@ export function Header() {
   const t = useTranslations('Common');
   const locale = useLocale();
   const { itemCount } = useCart();
+  const { isAuthenticated, logout } = useAuth();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const ar = locale === 'ar';
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setAccountOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-100">
@@ -63,6 +80,62 @@ export function Header() {
               </span>
             )}
           </Link>
+
+          {/* Account */}
+          {isAuthenticated ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setAccountOpen((v) => !v)}
+                aria-label={ar ? 'حسابي' : 'Mon compte'}
+                className="flex items-center gap-1 p-2 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <User className="h-5 w-5 text-gray-700" />
+                <ChevronDown className={`h-3 w-3 text-gray-500 transition-transform ${accountOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {accountOpen && (
+                <div className="absolute end-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                  <Link
+                    href={`/${locale}/profile`}
+                    onClick={() => setAccountOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <User className="h-4 w-4 text-gray-400" />
+                    {ar ? 'ملفي الشخصي' : 'Mon profil'}
+                  </Link>
+                  <Link
+                    href={`/${locale}/orders`}
+                    onClick={() => setAccountOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Package className="h-4 w-4 text-gray-400" />
+                    {ar ? 'طلباتي' : 'Mes commandes'}
+                  </Link>
+                  <Link
+                    href={`/${locale}/addresses`}
+                    onClick={() => setAccountOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <MapPin className="h-4 w-4 text-gray-400" />
+                    {ar ? 'عناويني' : 'Mes adresses'}
+                  </Link>
+                  <hr className="my-1 border-gray-100" />
+                  <button
+                    onClick={() => { logout(); setAccountOpen(false); }}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full text-start"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {ar ? 'تسجيل الخروج' : 'Se déconnecter'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link href={`/${locale}/login`}>
+              <Button variant="secondary" className="text-sm px-3 py-1.5 h-auto min-h-0">
+                {ar ? 'دخول' : 'Connexion'}
+              </Button>
+            </Link>
+          )}
 
           {/* Language Switcher */}
           <div className="ml-2">

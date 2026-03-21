@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { Product } from '@/types/product';
 import { ProductCardSkeleton } from '@/components/products/ProductCardSkeleton';
+import { fetchProducts } from '@/lib/api';
 
 export function PopularProducts() {
   const t = useTranslations('Common');
@@ -14,20 +15,10 @@ export function PopularProducts() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const response = await fetch('/data/products.json');
-        const data = await response.json();
-        // Get first 6 products as popular products
-        setProducts(data.slice(0, 6));
-      } catch (error) {
-        console.error('Failed to load products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
+    fetchProducts({ limit: '6' })
+      .then(setProducts)
+      .catch((err) => console.error('Failed to load products:', err))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {

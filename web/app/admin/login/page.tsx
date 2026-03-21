@@ -2,39 +2,37 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Label';
 import { toast } from 'sonner';
+import { adminLogin } from '@/lib/api';
 
-// Hardcoded admin credentials as per the functional specification.
-const ADMIN_EMAIL = 'admin@bellat.net';
-const ADMIN_PASSWORD = 'demo123';
+export const ADMIN_TOKEN_KEY = 'bellat_admin_token';
+export const ADMIN_REFRESH_KEY = 'bellat_admin_refresh_token';
 
-// This is the Admin Login Page. It's a Client Component to handle form
-// input, authentication logic, and client-side redirection.
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Handle form submission for login
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Check against hardcoded credentials
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      // On successful login, store a flag in localStorage and redirect to dashboard.
-      localStorage.setItem('isAdminLoggedIn', 'true');
+    setIsLoading(true);
+    try {
+      const { accessToken, refreshToken } = await adminLogin(email, password);
+      localStorage.setItem(ADMIN_TOKEN_KEY, accessToken);
+      localStorage.setItem(ADMIN_REFRESH_KEY, refreshToken);
       toast.success('Connexion réussie!');
       router.push('/admin/dashboard');
-    } else {
-      // On failed login, show an error toast.
-      toast.error('Email ou mot de passe incorrect.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur de connexion');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -100,9 +98,10 @@ export default function AdminLoginPage() {
           <CardFooter className="px-8 pb-8 pt-2">
             <Button
               type="submit"
+              disabled={isLoading}
               className="w-full h-12 bg-linear-to-r from-bellat-red to-bellat-red-dark hover:from-bellat-red-dark hover:to-bellat-red text-white font-semibold text-base shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              Se connecter
+              {isLoading ? 'Connexion...' : 'Se connecter'}
             </Button>
           </CardFooter>
         </form>

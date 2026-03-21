@@ -1,67 +1,114 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
+import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
 import { useCheckout } from '@/context/CheckoutContext';
+import { useAuth } from '@/context/AuthContext';
+import { placeOrder } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
-import { useLocale } from 'next-intl';
 
-// This is the final step of the checkout: the Order Review page.
 export default function ReviewPage() {
   const router = useRouter();
   const locale = useLocale();
   const { cartItems, clearCart } = useCart();
-  const { address, slot, setAddress, setSlot } = useCheckout(); // Get setters to clear state
+  const { address, slot, setAddress, setSlot } = useCheckout();
+  const { token, isAuthenticated } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // This effect ensures the user has completed the previous steps.
-  // If address or slot info is missing, it redirects them back to the start of the checkout.
+  // Redirect if checkout steps weren't completed
   useEffect(() => {
     if (!address || !slot) {
-      router.replace('/checkout/address');
+      router.replace(`/${locale}/checkout/address`);
     }
-  }, [address, slot, router]);
+  }, [address, slot, router, locale]);
 
-  // Calculate the subtotal from all items in the cart.
-  const subtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-  
-  // Determine the delivery fee based on the selected time slot, as per the spec.
-  const deliveryFee = slot?.time.includes('Soir') ? 450 : 250;
-  
-  // Calculate the final total.
-  const total = subtotal + deliveryFee;
-
-  // This function is called when the user confirms their order.
-  const handleConfirmOrder = () => {
-    // In a real application, this is where you would send the order to your backend API.
-    // For the prototype, we simply clear the cart and redirect to success page.
-
-    // After "placing" the order, clear the cart and the checkout session state.
-    clearCart();
-    setAddress(null);
-    setSlot(null);
-
-    // Redirect the user to the order success page.
-    router.push('/order-success');
-  };
-
-  // Render a loading state or null if the context data isn't available yet.
-  // This prevents errors during the initial render or if the user lands here directly.
   if (!address || !slot) {
-    return <div className="text-center py-12">Loading...</div>;
+    return <div className="text-center py-12">Chargement...</div>;
   }
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = subtotal; // Free delivery (B2B)
+
+  const handleConfirmOrder = async () => {
+    if (!isAuthenticated || !token) {
+      toast.error(
+        locale === 'ar'
+          ? 'يجب تسجيل الدخول لإتمام الطلب'
+          : 'Vous devez être connecté pour passer une commande',
+      );
+      router.push(`/${locale}/login`);
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      toast.error(locale === 'ar' ? 'السلة فارغة' : 'Votre panier est vide');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const order = await placeOrder(
+        {
+          items: cartItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+          deliveryAddress: {
+            fullName: address.fullName,
+            phoneNumber: address.phone,
+            addressLine1: address.address,
+            wilaya: address.wilaya,
+            commune: address.commune,
+          },
+          deliverySlotDate: slot.date,
+          deliverySlotTime: slot.time,
+          paymentMethod: 'cash_on_delivery',
+        },
+        token,
+      );
+
+      clearCart();
+      setAddress(null);
+      setSlot(null);
+      router.push(`/${locale}/order-success?orderId=${order.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la commande');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Confirmation de la commande</CardTitle>
+          <CardTitle>
+            {locale === 'ar' ? 'تأكيد الطلب' : 'Confirmation de la commande'}
+          </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-6">
-          {/* Delivery Address Summary */}
+          {/* Auth warning */}
+          {!isAuthenticated && (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+              {locale === 'ar'
+                ? 'يجب تسجيل الدخول لإتمام الطلب.'
+                : 'Vous devez être connecté pour confirmer la commande.'}{' '}
+              <button
+                onClick={() => router.push(`/${locale}/login`)}
+                className="underline font-medium"
+              >
+                {locale === 'ar' ? 'تسجيل الدخول' : 'Se connecter'}
+              </button>
+            </div>
+          )}
+
+          {/* Delivery address */}
           <div>
-            <h3 className="font-semibold">Livraison à:</h3>
+            <h3 className="font-semibold">
+              {locale === 'ar' ? 'عنوان التوصيل:' : 'Livraison à:'}
+            </h3>
             <div className="text-sm text-gray-600 mt-2 p-4 bg-gray-50 rounded-lg border">
               <p className="font-bold">{address.fullName}</p>
               <p>{address.phone}</p>
@@ -70,47 +117,60 @@ export default function ReviewPage() {
             </div>
           </div>
 
-          {/* Delivery Slot Summary */}
+          {/* Delivery slot */}
           <div>
-            <h3 className="font-semibold">Date de livraison:</h3>
+            <h3 className="font-semibold">
+              {locale === 'ar' ? 'موعد التوصيل:' : 'Date de livraison:'}
+            </h3>
             <p className="text-sm text-gray-600">{slot.date}, {slot.time}</p>
           </div>
 
-          {/* Items Summary */}
+          {/* Items */}
           <div>
-            <h3 className="font-semibold">Articles ({cartItems.length})</h3>
+            <h3 className="font-semibold">
+              {locale === 'ar' ? `المنتجات (${cartItems.length})` : `Articles (${cartItems.length})`}
+            </h3>
             <ul className="text-sm text-gray-600 mt-2 space-y-1">
-              {cartItems.map(item => (
+              {cartItems.map((item) => (
                 <li key={item.id} className="flex justify-between">
-                  <span>{locale === 'ar' ? item.name_ar : item.name_fr} x{item.quantity}</span>
+                  <span>{locale === 'ar' ? item.name_ar : item.name_fr} ×{item.quantity}</span>
                   <span>{item.price * item.quantity} DZD</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Financial Summary */}
+          {/* Totals */}
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Sous-total</span>
+              <span>{locale === 'ar' ? 'المجموع الجزئي' : 'Sous-total'}</span>
               <span>{subtotal} DZD</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Livraison</span>
-              <span>{deliveryFee} DZD</span>
+              <span>{locale === 'ar' ? 'التوصيل' : 'Livraison'}</span>
+              <span className="text-green-600 font-medium">
+                {locale === 'ar' ? 'مجاني' : 'Gratuite'}
+              </span>
             </div>
             <div className="flex justify-between font-bold text-lg">
-              <span>Total</span>
+              <span>{locale === 'ar' ? 'الإجمالي' : 'Total'}</span>
               <span>{total} DZD</span>
             </div>
-             <div className="text-sm text-gray-500 pt-4">
-              Paiement: Espèces à la livraison
+            <div className="text-sm text-gray-500 pt-4">
+              {locale === 'ar' ? 'الدفع: نقدًا عند التسليم' : 'Paiement: Espèces à la livraison'}
             </div>
           </div>
         </CardContent>
+
         <CardFooter>
-          <Button onClick={handleConfirmOrder} className="w-full">
-            Confirmer la commande
+          <Button
+            onClick={handleConfirmOrder}
+            className="w-full"
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? (locale === 'ar' ? 'جارٍ الإرسال...' : 'Envoi en cours...')
+              : (locale === 'ar' ? 'تأكيد الطلب' : 'Confirmer la commande')}
           </Button>
         </CardFooter>
       </Card>
