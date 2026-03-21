@@ -1,0 +1,154 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { LayoutDashboard, Package, ShoppingCart, LogOut, BarChart2, Users, FileBarChart2, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { toast, Toaster } from 'sonner';
+
+const ADMIN_TOKEN_KEY = 'bellat_admin_token';
+const ADMIN_REFRESH_KEY = 'bellat_admin_refresh_token';
+
+export default function AdminLayoutClient({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
+  const [authState, setAuthState] = useState(() => {
+    if (typeof window === 'undefined') {
+      return { isLoggedIn: false, isLoading: true };
+    }
+    const loggedIn = !!localStorage.getItem(ADMIN_TOKEN_KEY);
+    return { isLoggedIn: loggedIn, isLoading: false };
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !authState.isLoggedIn && window.location.pathname !== '/admin/login') {
+      router.replace('/admin/login');
+    }
+  }, [authState.isLoggedIn, router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_REFRESH_KEY);
+    setAuthState({ isLoggedIn: false, isLoading: false });
+    toast.info('Déconnexion réussie.');
+    router.push('/admin/login');
+  };
+
+  if (authState.isLoading) {
+    return null;
+  }
+
+  if (!authState.isLoggedIn) {
+    return (
+      <>
+        {children}
+        <Toaster position="top-center" />
+      </>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <aside className="w-64 bg-white shadow-xl border-r border-gray-200 flex flex-col">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold bg-linear-to-r from-green-600 to-green-700 bg-clip-text text-transparent">
+            Bellat Admin
+          </h2>
+        </div>
+        <nav className="grow p-4">
+          <ul className="space-y-2">
+            <li>
+              <Link href="/admin/dashboard" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <LayoutDashboard className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Dashboard</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/orders" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <ShoppingCart className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Commandes</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/products" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <Package className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Produits</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/inventory" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <BarChart2 className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Inventaire</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/customers" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <Users className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Clients</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/analytics" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <BarChart2 className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Analytique</span>
+              </Link>
+            </li>
+          </ul>
+          <p className="px-4 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Configuration</p>
+          <ul className="space-y-1 mb-1">
+            <li>
+              <Link href="/admin/settings" className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <Settings className="h-4 w-4 group-hover:text-green-600" />
+                <span className="text-sm font-medium">Paramètres</span>
+              </Link>
+            </li>
+          </ul>
+          <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rapports</p>
+          <ul className="space-y-1">
+            <li>
+              <Link href="/admin/reports/customers" className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <FileBarChart2 className="h-4 w-4 group-hover:text-green-600" />
+                <span className="text-sm font-medium">Rapport clients</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/reports/inventory" className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <FileBarChart2 className="h-4 w-4 group-hover:text-green-600" />
+                <span className="text-sm font-medium">Rapport inventaire</span>
+              </Link>
+            </li>
+          </ul>
+        </nav>
+        <div className="p-4 border-t border-gray-200">
+          <Button
+            variant="secondary"
+            onClick={handleLogout}
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+          >
+            <LogOut className="h-4 w-4 mr-2" /> Déconnexion
+          </Button>
+        </div>
+      </aside>
+
+      <div className="grow flex flex-col">
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              Administration • Bellat Platform
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-linear-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                A
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="grow p-8 bg-gray-50">
+          {children}
+        </main>
+      </div>
+      <Toaster position="top-center" />
+    </div>
+  );
+}

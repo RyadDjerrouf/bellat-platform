@@ -79,7 +79,8 @@
     "Panier": "Panier",
     "AddedToCart": "ajouté au panier",
     "DecrementQuantity": "Diminuer la quantité",
-    "IncrementQuantity": "Augmenter la quantité"
+    "IncrementQuantity": "Augmenter la quantité",
+    "Currency": "DZD"
   },
   "Status": {
     "pending": "⏳ En attente",

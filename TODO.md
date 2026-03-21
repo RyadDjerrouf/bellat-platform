@@ -1,8 +1,25 @@
 # 📋 Bellat Digital Ordering Platform - Development Roadmap
 
-**Status:** 🟡 Phase 1 + Phase 3 mostly done; Phase 2 ✅ complete | **Next:** Delivery zones, SMS/push notifications, B2B features
+**Status:** 🟡 Phase 1 ✅ complete; Phase 2 ✅ complete; Phase 3 mostly done | **Next:** Cart hydration fix, search image fix, delivery zones, SMS/push, B2B features
 **Last Updated:** March 21, 2026
 **Target Launch:** Q2 2026
+
+---
+
+## 🐛 Known Issues & Bug Log
+
+### Fixed (March 21, 2026 — end-to-end test session)
+- [x] **Stale `.next` build** — ChunkLoadError on boot; cleared `.next` and restarted cleanly
+- [x] **Login form blocks 7-char passwords** — `minLength={8}` applied to login mode; now only enforced during register (`web/app/[locale]/login/page.tsx:126`)
+- [x] **Backend `LoginDto @MinLength(8)`** — validation rejected any password under 8 chars at login; removed decorator from `auth/dto/login.dto.ts`
+- [x] **Admin user missing from DB** — `admin@bellat.net` did not exist; created with bcrypt-hashed `demo123` via Prisma
+- [x] **Admin layout crash** (`Missing <html>/<body>`) — `app/admin/layout.tsx` was a client component with no html/body; split into server wrapper + `AdminLayoutClient.tsx`
+- [x] **Inventory pagination `NaN`** — `page`/`limit` query params arrived as strings; `skip` and `take` became `NaN`; fixed with `Number() || fallback` in `inventory.service.ts`
+- [x] **`Common.Currency` i18n key missing** — cart showed `"450 Common.Currency / 500g"`; added `"Currency": "DZD"` to `fr.json` and `"Currency": "د.ج"` to `ar.json`
+
+### Postponed (known, not blocking)
+- [ ] **Cart badge hydration mismatch** — SSR renders no badge; client reads localStorage → React warning logged. Fix: initialize cart count as `null`, render badge only after mount. Low priority (cosmetic, non-blocking).
+- [ ] **Broken product images in search results** — search result cards show broken `<img>` for product images. Likely missing Next.js `<Image>` wrapper or wrong path. Low priority.
 
 ---
 
@@ -11,15 +28,15 @@
 | Phase | Status | Progress | Notes |
 |-------|--------|----------|-------|
 | Phase 0: Foundation | ✅ Done | Core done | Monorepo + Docker + frontend prototype migrated |
-| Phase 1: Backend | 🟡 In Progress | ~35/35 tasks | Shared libs (@bellat/common, @bellat/types), pg_trgm autocomplete, cron stock alerts, CSV inventory import, all done. Delivery zones + SMS/push + B2B deferred |
-| Phase 2: Frontend | ✅ Done | ~32/32 tasks | IndexedDB offline cache (Dexie.js) + background sync done. Modal/Drawer components done. Lighthouse scores: Performance 94, SEO 92 |
+| Phase 1: Backend | ✅ Done | 35/35 tasks | Shared libs, pg_trgm autocomplete, cron stock alerts, CSV import all done. Delivery zones + SMS/push + B2B deferred to Phase 4+ |
+| Phase 2: Frontend | ✅ Done | 32/32 tasks | IndexedDB offline cache (Dexie.js) + background sync done. Modal/Drawer components done. Lighthouse scores: Performance 94, SEO 92 |
 | Phase 3: Admin | 🟡 In Progress | ~20/22 tasks | CSV inventory import UI done; delivery zones + reporting pages deferred |
 | Phase 4: Integrations | 🟡 Partial | ~1/12 tasks | SendGrid email service wired (password reset); SMS + push still blocked |
-| Phase 5: QA & Launch | 🟡 In Progress | ~8/16 tasks | Playwright E2E tests (auth, products, cart, admin), Lighthouse audit + fixes (LCP, contrast, viewport, touch targets), CI workflow done |
+| Phase 5: QA & Launch | 🟡 In Progress | ~10/16 tasks | Playwright E2E + Lighthouse done; 7 bugs found and fixed in live test session (March 21) |
 
 **Phase 2 detail:** All customer-facing pages complete and wired to real backend. PWA: service worker, manifest, icons, offline fallback page all done. Favorites: add/remove from product detail, full favorites page. Recipes: 6 bilingual recipes with "add all to cart". IndexedDB product cache + background sync done (Dexie.js, `useProductCache`, `useOfflineSync` hooks).
 
-**Phase 5 new:** Playwright E2E tests covering 4 spec files (auth, products, cart, admin). Lighthouse audit applied — Performance 94 ✅ (hero image LCP fix), Accessibility 91+ (WCAG AA contrast on PWA button, maximum-scale=5, touch target padding), SEO 92 ✅.
+**Phase 5 new:** Playwright E2E tests covering 4 spec files (auth, products, cart, admin). Lighthouse audit applied — Performance 94 ✅ (hero image LCP fix), Accessibility 91+ (WCAG AA contrast on PWA button, maximum-scale=5, touch target padding), SEO 92 ✅. Live end-to-end test session completed March 21 — 7 bugs found and fixed.
 
 ---
 

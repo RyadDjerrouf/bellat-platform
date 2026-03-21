@@ -17,8 +17,10 @@ export class InventoryService {
     page?: number;
     limit?: number;
   }) {
-    const { stockStatus, categoryId, q, page = 1, limit = 50 } = params;
-    const skip = (page - 1) * limit;
+    const page = Math.max(1, Number(params.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(params.limit) || 50));
+    const { stockStatus, categoryId, q } = params;
+    const skip = Math.max(0, (page - 1) * limit);
 
     const where = {
       isActive: true,

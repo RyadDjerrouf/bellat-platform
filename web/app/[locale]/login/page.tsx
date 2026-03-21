@@ -123,7 +123,7 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
-                minLength={8}
+                minLength={mode === 'register' ? 8 : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"

@@ -79,7 +79,8 @@
     "Panier": "السلة",
     "AddedToCart": "أضيف إلى السلة",
     "DecrementQuantity": "تقليل الكمية",
-    "IncrementQuantity": "زيادة الكمية"
+    "IncrementQuantity": "زيادة الكمية",
+    "Currency": "د.ج"
   },
   "Status": {
     "pending": "⏳ قيد الانتظار",

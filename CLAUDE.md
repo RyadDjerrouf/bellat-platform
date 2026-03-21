@@ -13,6 +13,11 @@ cd web && npm run build        # Production build
 cd web && npm run start        # Run production server (after build)
 cd web && npm run lint         # ESLint
 
+# E2E Tests (Playwright — must build first: npm run build)
+cd web && npx playwright test              # Run all E2E specs (chromium)
+cd web && npx playwright test e2e/auth.spec.ts   # Run a single spec
+cd web && npx playwright test --ui         # Interactive UI mode
+
 # Backend (NestJS in /apps/api-gateway)
 cd apps/api-gateway && npm run dev    # Dev server on port 3002 (watch mode)
 cd apps/api-gateway && npm run build  # Compile TypeScript → dist/
@@ -44,6 +49,8 @@ docker-compose logs -f postgres # View postgres logs
 - `/web/` — Next.js 16 frontend: customer shop + admin dashboard (active, fully wired to backend)
 - `/apps/api-gateway/` — NestJS 10 REST API (active, running on port 3002)
 - `/libs/database/` — Prisma schema, migrations, seed data (source of truth for DB)
+- `/libs/common/` — `@bellat/common` NestJS shared utilities (guards, decorators, middleware)
+- `/libs/types/` — `@bellat/types` shared TypeScript types (used by both api-gateway and web)
 - `/docs/` — Reference docs including `schema-prototype.sql`
 - `/docker/` and `/k8s/` — Infrastructure placeholders
 
@@ -125,6 +132,7 @@ web/
 - `AuthContext` exposes `{ token, isAuthenticated, login(accessToken, refreshToken), logout() }`
 - `CheckoutContext` stores `{ address, setAddress, deliverySlot, setDeliverySlot }` in sessionStorage
 - `DeliveryAddress` context type fields: `fullName`, `phone`, `address`, `wilaya`, `commune` — note `phone` and `address` (not `phoneNumber`/`addressLine1` which are backend field names)
+- **Offline cache**: `useProductCache` and `useOfflineSync` hooks (Dexie.js / IndexedDB) — product data is cached locally; `useOfflineSync` replays queued mutations when connectivity is restored
 
 ---
 
@@ -230,8 +238,8 @@ Bellat (CVA — Conserverie de Viandes d'Algérie) — B2C retail and B2B wholes
   - `localhost:3000` — web frontend (Next.js)
   - `localhost:3002` — API gateway (NestJS)
   - Supabase dashboard — production DB
-- **Admin credentials**: `admin@bellat.net` / `demo123` — hits real backend; JWT role=admin required
-- **Check `/TODO.md`** for full roadmap — Phase 1 (~33/35 done), Phase 2 (~31/32 done ✅), Phase 3 (~18/22 done)
+- **Admin credentials**: `admin@bellat.net` / `demo123` — hits real backend; JWT role=admin required. **Not seeded automatically** — must be created manually via Prisma: `bcrypt.hash('demo123', 12)` → `prisma.user.create({ data: { email: 'admin@bellat.net', passwordHash: hash, fullName: 'Admin Bellat', role: 'admin' } })`
+- **Check `/TODO.md`** for full roadmap — Phase 1 (35/35 ✅), Phase 2 (32/32 ✅), Phase 3 (~20/22), Phase 4 (~1/12 — SMS/push blocked), Phase 5 (~8/16 — Playwright E2E + Lighthouse done)
 - **New env vars** (api-gateway): `SENDGRID_API_KEY`, `MAIL_FROM`, `APP_URL` — added to `apps/api-gateway/.env`
 
 ## Out of Scope
