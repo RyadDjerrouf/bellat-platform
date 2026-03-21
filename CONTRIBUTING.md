@@ -249,20 +249,23 @@ describe('ProductService', () => {
 
 ## Localization
 
-- All user-facing strings must be in translation files
-- Use i18next for translations
-- Support both Arabic (RTL) and French (LTR)
+- All user-facing strings must be in `web/messages/fr.json` and `web/messages/ar.json`
+- Use **next-intl** hooks — never i18next or next-i18next
+- Support both Arabic (RTL) and French (LTR) — use `start`/`end` not `left`/`right` in Tailwind
 
 ```tsx
 // ✅ Good
-import { useTranslation } from 'next-i18next';
+import { useTranslations } from 'next-intl';
 
 export function ProductCard() {
-  const { t } = useTranslation('products');
-  return <button>{t('addToCart')}</button>;
+  const t = useTranslations('Common');
+  return <button>{t('AddToCart')}</button>;
 }
 
-// ❌ Bad
+// ❌ Bad — wrong library
+import { useTranslation } from 'next-i18next';
+
+// ❌ Bad — hardcoded string
 export function ProductCard() {
   return <button>Add to Cart</button>;
 }
@@ -295,7 +298,8 @@ export function ProductCard() {
 
 ## Questions?
 
-- Check the [documentation](.claude/README.md)
+- Check [CLAUDE.md](../CLAUDE.md) for architecture, patterns, and all commands
+- Check [.claude/QUICKSTART.md](QUICKSTART.md) for setup
 - Ask in the team chat
 - Create a GitHub discussion
 

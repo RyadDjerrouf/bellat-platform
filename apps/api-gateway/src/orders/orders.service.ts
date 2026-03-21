@@ -5,8 +5,10 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
+import { OrdersGateway } from './orders.gateway';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
 
@@ -25,7 +27,11 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+    private readonly gateway: OrdersGateway,
+  ) {}
 
   // ── Checkout ───────────────────────────────────────────────────────────────
 
@@ -84,8 +90,27 @@ export class OrdersService {
           })),
         },
       },
-      include: { items: true },
+      include: {
+        items: true,
+        customer: { select: { email: true, fullName: true } },
+      },
     });
+
+    // Fire-and-forget confirmation email — never block the checkout response
+    this.mail
+      .sendOrderConfirmation(order.customer.email, order.customer.fullName, {
+        id: order.id,
+        total: Number(order.total),
+        deliverySlotDate: order.deliverySlotDate,
+        deliverySlotTime: order.deliverySlotTime,
+        deliveryAddress: order.deliveryAddress,
+        items: dto.items.map((item) => ({
+          nameFr: productMap.get(item.productId)!.nameFr,
+          quantity: item.quantity,
+          priceAtPurchase: Number(productMap.get(item.productId)!.price),
+        })),
+      })
+      .catch(() => {});
 
     return order;
   }
@@ -181,9 +206,27 @@ export class OrdersService {
   }
 
   async findAll(query: OrderQueryDto) {
-    const { status, page = 1, limit = 20 } = query;
+    const { status, q, from, to, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
-    const where = status ? { status } : {};
+
+    const rangeFrom = from ? new Date(from) : undefined;
+    const rangeTo = to ? (() => { const d = new Date(to); d.setHours(23, 59, 59, 999); return d; })() : undefined;
+
+    const where: Prisma.OrderWhereInput = {
+      ...(status && { status }),
+      ...((rangeFrom || rangeTo) && {
+        createdAt: {
+          ...(rangeFrom && { gte: rangeFrom }),
+          ...(rangeTo && { lte: rangeTo }),
+        },
+      }),
+      ...(q && {
+        OR: [
+          { id: { contains: q, mode: 'insensitive' } },
+          { customer: { fullName: { contains: q, mode: 'insensitive' } } },
+        ],
+      }),
+    };
 
     const [total, items] = await Promise.all([
       this.prisma.order.count({ where }),
@@ -214,7 +257,12 @@ export class OrdersService {
       );
     }
 
-    return this.prisma.order.update({ where: { id: orderId }, data: { status: newStatus } });
+    const updated = await this.prisma.order.update({ where: { id: orderId }, data: { status: newStatus } });
+
+    // Notify any connected customers watching this order
+    this.gateway.emitStatusUpdate(orderId, newStatus);
+
+    return updated;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

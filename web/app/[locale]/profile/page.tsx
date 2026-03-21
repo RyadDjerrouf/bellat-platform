@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
-import { fetchProfile, updateProfile, type UserProfile } from '@/lib/api';
+import { fetchProfile, updateProfile, deleteAccount, type UserProfile } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
 export default function ProfilePage() {
   const router = useRouter();
   const locale = useLocale();
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, logout } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +26,8 @@ export default function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPwSection, setShowPwSection] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const ar = locale === 'ar';
 
@@ -70,6 +72,20 @@ export default function ProfilePage() {
       toast.error(err instanceof Error ? err.message : 'Erreur');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAccount(token!);
+      logout();
+      router.push(`/${locale}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur');
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -128,7 +144,7 @@ export default function ProfilePage() {
       </Card>
 
       {/* Password change */}
-      <Card>
+      <Card className="mb-4">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">{ar ? 'كلمة المرور' : 'Mot de passe'}</CardTitle>
@@ -178,6 +194,45 @@ export default function ProfilePage() {
             </form>
           </CardContent>
         )}
+      </Card>
+      {/* Danger zone — delete account */}
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="text-base text-red-700">{ar ? 'منطقة الخطر' : 'Zone de danger'}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {showDeleteConfirm ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700">
+                {ar
+                  ? 'هذا الإجراء لا يمكن التراجع عنه. سيتم حذف حسابك نهائياً.'
+                  : 'Cette action est irréversible. Votre compte sera définitivement supprimé.'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                  className="flex-1 bg-red-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  {isDeleting ? '...' : ar ? 'تأكيد الحذف' : 'Confirmer la suppression'}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  {ar ? 'إلغاء' : 'Annuler'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-sm text-red-600 hover:text-red-700 hover:underline"
+            >
+              {ar ? 'حذف حسابي' : 'Supprimer mon compte'}
+            </button>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

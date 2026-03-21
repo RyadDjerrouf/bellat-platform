@@ -16,10 +16,10 @@ export function Footer() {
         </div>
         <div>
           <h4 className="font-semibold">{t('Navigation')}</h4>
-          <ul className="mt-4 space-y-2 text-sm">
-            <li><Link href="/products" className="hover:text-bellat-red">{t('Products')}</Link></li>
-            <li><Link href="/about" className="hover:text-bellat-red">{t('AboutUs')}</Link></li>
-            <li><Link href="/contact" className="hover:text-bellat-red">{t('ContactUs')}</Link></li>
+          <ul className="mt-4 space-y-1 text-sm">
+            <li><Link href="/products" className="inline-block py-1.5 hover:text-bellat-red">{t('Products')}</Link></li>
+            <li><Link href="/about" className="inline-block py-1.5 hover:text-bellat-red">{t('AboutUs')}</Link></li>
+            <li><Link href="/contact" className="inline-block py-1.5 hover:text-bellat-red">{t('ContactUs')}</Link></li>
           </ul>
         </div>
         <div>
@@ -29,14 +29,14 @@ export function Footer() {
         </div>
         <div>
           <h4 className="font-semibold">{t('FollowUs')}</h4>
-          <div className="mt-4 flex space-x-4">
-            <a href="#" aria-label="Facebook" className="hover:text-bellat-red">
+          <div className="mt-4 flex space-x-2">
+            <a href="#" aria-label="Facebook" className="p-2 hover:text-bellat-red">
               <Facebook />
             </a>
-            <a href="#" aria-label="Instagram" className="hover:text-bellat-red">
+            <a href="#" aria-label="Instagram" className="p-2 hover:text-bellat-red">
               <Instagram />
             </a>
-            <a href="#" aria-label="Twitter" className="hover:text-bellat-red">
+            <a href="#" aria-label="Twitter" className="p-2 hover:text-bellat-red">
               <Twitter />
             </a>
           </div>

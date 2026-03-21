@@ -4,7 +4,7 @@ import '../globals.css';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Package, ShoppingCart, LogOut, BarChart2, Users } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, LogOut, BarChart2, Users, FileBarChart2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast, Toaster } from 'sonner';
 
@@ -106,6 +106,30 @@ export default function AdminLayout({
               <Link href="/admin/analytics" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
                 <BarChart2 className="h-5 w-5 group-hover:text-green-600" />
                 <span className="font-medium">Analytique</span>
+              </Link>
+            </li>
+          </ul>
+          <p className="px-4 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Configuration</p>
+          <ul className="space-y-1 mb-1">
+            <li>
+              <Link href="/admin/settings" className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <Settings className="h-4 w-4 group-hover:text-green-600" />
+                <span className="text-sm font-medium">Paramètres</span>
+              </Link>
+            </li>
+          </ul>
+          <p className="px-4 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Rapports</p>
+          <ul className="space-y-1">
+            <li>
+              <Link href="/admin/reports/customers" className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <FileBarChart2 className="h-4 w-4 group-hover:text-green-600" />
+                <span className="text-sm font-medium">Rapport clients</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/reports/inventory" className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <FileBarChart2 className="h-4 w-4 group-hover:text-green-600" />
+                <span className="text-sm font-medium">Rapport inventaire</span>
               </Link>
             </li>
           </ul>

@@ -122,6 +122,24 @@ export class UsersService {
     return this.prisma.address.update({ where: { id: addressId }, data: { isDefault: true } });
   }
 
+  async deleteAccount(userId: string): Promise<{ message: string }> {
+    // Block deletion if the user has any non-cancelled orders — orders reference this user
+    // and the schema uses onDelete: Restrict on the orders table.
+    const activeOrders = await this.prisma.order.count({
+      where: {
+        customerId: userId,
+        status: { notIn: ['cancelled', 'delivered'] },
+      },
+    });
+    if (activeOrders > 0) {
+      throw new BadRequestException(
+        'Account cannot be deleted while you have active orders. Wait for them to be delivered or cancel them first.',
+      );
+    }
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { message: 'Account deleted successfully.' };
+  }
+
   // ── Admin ───────────────────────────────────────────────────────────────────
 
   async listUsersForAdmin(params: { page?: number; limit?: number; q?: string }) {

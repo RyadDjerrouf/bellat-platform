@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import Link from 'next/link';
-import { ShoppingCart, DollarSign, Clock, AlertTriangle } from 'lucide-react';
-import { fetchAdminOrders, fetchAdminInventory, type AdminOrder } from '@/lib/api';
+import { ShoppingCart, DollarSign, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
+import { fetchAdminOrders, fetchAdminInventory, fetchAdminAnalytics, type AdminOrder, type AnalyticsSummary } from '@/lib/api';
 
 const ADMIN_TOKEN_KEY = 'bellat_admin_token';
 
@@ -21,6 +21,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'warning' | 'info'
 export default function AdminDashboardPage() {
   const [recentOrders, setRecentOrders] = useState<AdminOrder[]>([]);
   const [summary, setSummary] = useState({ total: 0, pending: 0, revenue: 0, lowStock: 0, outOfStock: 0 });
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -30,7 +31,8 @@ export default function AdminDashboardPage() {
     Promise.all([
       fetchAdminOrders(token, { page: 1 }),
       fetchAdminInventory(token, { limit: 1 }),
-    ]).then(([ordersRes, inventoryRes]) => {
+      fetchAdminAnalytics(token),
+    ]).then(([ordersRes, inventoryRes, analyticsRes]) => {
       const orders = ordersRes.data;
       const pending = orders.filter((o) => o.status === 'pending').length;
       const revenue = orders.reduce((sum, o) => sum + Number(o.total), 0);
@@ -42,6 +44,7 @@ export default function AdminDashboardPage() {
         lowStock: inventoryRes.summary.lowStock,
         outOfStock: inventoryRes.summary.outOfStock,
       });
+      setAnalytics(analyticsRes);
     }).finally(() => setIsLoading(false));
   }, []);
 
@@ -122,6 +125,80 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily Revenue Chart — last 14 days */}
+      <Card className="border-0 shadow-lg mb-8">
+        <CardHeader className="border-b bg-linear-to-r from-gray-50 to-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-bold text-gray-900">Revenus journaliers</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">14 derniers jours (DZD)</p>
+            </div>
+            <Link href="/admin/analytics" className="text-green-600 hover:text-green-700 text-sm font-medium">
+              Voir tout →
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="px-6 py-5">
+          {isLoading || !analytics ? (
+            <div className="h-28 bg-gray-100 rounded animate-pulse" />
+          ) : analytics.dailyRevenue.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">Aucune donnée</p>
+          ) : (() => {
+            const days = analytics.dailyRevenue.slice(-14);
+            const maxRev = Math.max(...days.map((d) => d.revenue), 1);
+            return (
+              <div className="flex items-end gap-1 h-28">
+                {days.map((d) => (
+                  <div key={d.date} className="flex-1 flex flex-col items-center justify-end group relative">
+                    <div
+                      className="w-full bg-green-500 rounded-t hover:bg-green-600 transition-colors"
+                      style={{ height: `${(d.revenue / maxRev) * 100}%`, minHeight: 2 }}
+                    />
+                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
+                      {d.date.slice(5)}: {d.revenue.toLocaleString('fr-DZ')} DZD
+                    </div>
+                    <span className="text-[8px] text-gray-400 mt-1 hidden sm:block">{d.date.slice(8)}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Top Products */}
+      {analytics && analytics.topProducts.length > 0 && (
+        <Card className="border-0 shadow-lg mb-8">
+          <CardHeader className="border-b bg-linear-to-r from-gray-50 to-white px-6 py-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              <CardTitle className="text-xl font-bold text-gray-900">Top produits</CardTitle>
+              <span className="text-sm text-gray-500 ml-1">par chiffre d&apos;affaires</span>
+            </div>
+          </CardHeader>
+          <CardContent className="px-6 py-4 space-y-3">
+            {(() => {
+              const maxRev = Math.max(...analytics.topProducts.map((p) => p.revenue), 1);
+              return analytics.topProducts.map((p, i) => (
+                <div key={p.productId}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-700">
+                      <span className="text-gray-400 mr-2 font-mono">#{i + 1}</span>
+                      {p.nameFr}
+                      <span className="text-xs text-gray-400 ml-2">({p.orderCount} cmd)</span>
+                    </span>
+                    <span className="font-semibold text-gray-900">{p.revenue.toLocaleString('fr-DZ')} DZD</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${(p.revenue / maxRev) * 100}%` }} />
+                  </div>
+                </div>
+              ));
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Orders Table */}
       <Card className="border-0 shadow-lg">

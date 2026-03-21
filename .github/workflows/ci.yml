@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (NestJS)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/api-gateway/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: apps/api-gateway
+        run: npm ci
+
+      - name: Lint backend
+        working-directory: apps/api-gateway
+        run: npm run lint
+
+      - name: Build backend
+        working-directory: apps/api-gateway
+        run: npm run build
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: web
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3002
+          NEXT_PUBLIC_WS_URL: http://localhost:3002
+        run: npm run build

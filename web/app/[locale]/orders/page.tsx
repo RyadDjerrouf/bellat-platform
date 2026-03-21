@@ -35,30 +35,44 @@ export default function OrdersPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
+  const [statusFilter, setStatusFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reordering, setReordering] = useState<string | null>(null);
+
+  const loadOrders = async (status?: string) => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+      const { data, meta } = await fetchOrders(token, { status: status || undefined });
+      setOrders(data);
+      setTotal(meta.total);
+    } catch {
+      toast.error('Impossible de charger les commandes');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace(`/${locale}/login`);
       return;
     }
-    fetchOrders(token!)
-      .then(({ data, meta }) => { setOrders(data); setTotal(meta.total); })
-      .catch(() => toast.error('Impossible de charger les commandes'))
-      .finally(() => setIsLoading(false));
-  }, [isAuthenticated, token, locale, router]);
+    loadOrders();
+  }, [isAuthenticated, token, locale, router]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFilterChange = (s: string) => {
+    setStatusFilter(s);
+    loadOrders(s);
+  };
 
   const handleCancel = async (orderId: string) => {
     setCancelling(orderId);
     try {
       await cancelOrder(token!, orderId);
       toast.success(locale === 'ar' ? 'تم إلغاء الطلب' : 'Commande annulée');
-      // Refresh the list
-      const { data, meta } = await fetchOrders(token!);
-      setOrders(data);
-      setTotal(meta.total);
+      await loadOrders(statusFilter);
     } catch {
       toast.error(locale === 'ar' ? 'فشل إلغاء الطلب' : "Échec de l'annulation");
     } finally {
@@ -106,6 +120,36 @@ export default function OrdersPage() {
           {locale === 'ar' ? `${total} طلب` : `${total} commande${total !== 1 ? 's' : ''}`}
         </p>
       </header>
+
+      {/* Status filter tabs */}
+      {(() => {
+        const filters: { value: string; fr: string; ar: string }[] = [
+          { value: '', fr: 'Toutes', ar: 'الكل' },
+          { value: 'pending', fr: 'En attente', ar: 'في الانتظار' },
+          { value: 'confirmed', fr: 'Confirmées', ar: 'مؤكد' },
+          { value: 'preparing', fr: 'En préparation', ar: 'قيد التحضير' },
+          { value: 'out_for_delivery', fr: 'En livraison', ar: 'في الطريق' },
+          { value: 'delivered', fr: 'Livrées', ar: 'تم التسليم' },
+          { value: 'cancelled', fr: 'Annulées', ar: 'ملغاة' },
+        ];
+        return (
+          <div className="flex gap-2 flex-wrap mb-6 overflow-x-auto pb-1">
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => handleFilterChange(f.value)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  statusFilter === f.value
+                    ? 'bg-green-700 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {locale === 'ar' ? f.ar : f.fr}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       {orders.length === 0 ? (
         <div className="text-center py-20">

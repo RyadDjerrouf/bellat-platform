@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/Badge';
 import { AddToCartForm } from '@/components/products/AddToCartForm';
+import { FavoriteButton } from '@/components/products/FavoriteButton';
 
 // Define the props for the page, which include the dynamic route parameter `id` and `locale`.
 // In Next.js 15+, params is a Promise
@@ -69,6 +70,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="flex items-center gap-4 mt-2">
               <p className="text-2xl font-bold text-bellat-red">{product.price} DZD</p>
               <span className="text-gray-500">/ {product.unit}</span>
+              <FavoriteButton productId={product.id} locale={resolvedParams.locale} />
             </div>
 
             <div className="mt-4">

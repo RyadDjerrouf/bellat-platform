@@ -50,8 +50,10 @@ docker-compose logs -f postgres # View postgres logs
 **Current State (March 2026):**
 - Full-stack app is live end-to-end. Frontend talks to real NestJS backend.
 - Database: **Supabase** (PostgreSQL 15) — `libs/database/.env` and `apps/api-gateway/.env` both point to it.
-- All customer pages wired to real API: auth, products, cart, checkout, orders, profile, addresses.
-- Admin dashboard fully wired: login (real JWT), orders (list + detail + status advance), products (list + create + edit + deactivate), inventory, customers, analytics.
+- All customer pages wired to real API: auth, products, cart, checkout, orders, profile, addresses, favorites, recipes (static).
+- Admin dashboard fully wired: login (real JWT), orders (list + detail + status advance + search + date range filter), products (list + create + edit + deactivate + search), inventory (search), customers (search), analytics (date range presets).
+- PWA: service worker (`/public/sw.js` v2), manifest, icons (`/public/icons/`), offline fallback page (`/offline`).
+- Email: `MailService` sends password-reset links via SendGrid v3 REST API (native `https`, no extra npm package). Falls back to console log when `SENDGRID_API_KEY=REPLACE_ME`.
 
 ---
 
@@ -65,33 +67,49 @@ web/
 ├── app/
 │   ├── [locale]/              # Bilingual customer routes (/fr/*, /ar/*)
 │   │   ├── page.tsx           # Home
-│   │   ├── products/          # Listing + [id] detail + categories/[category]
+│   │   ├── products/          # Listing + [id] detail (with FavoriteButton) + categories/[category]
 │   │   ├── cart/              # Shopping cart
 │   │   ├── checkout/          # address → delivery → review (3 steps)
 │   │   ├── order-success/     # Post-checkout confirmation (NOT under checkout/)
-│   │   ├── orders/            # Order history list + [id] detail/tracking
-│   │   ├── profile/           # Edit name/phone/password
-│   │   ├── addresses/         # Saved addresses CRUD
+│   │   ├── orders/            # Order history list (status filter) + [id] detail/tracking
+│   │   ├── profile/           # Edit name/phone/password + delete account
+│   │   ├── addresses/         # Saved addresses CRUD + inline edit
+│   │   ├── favorites/         # Favorited products list (add/remove)
+│   │   ├── recipes/           # Recipe grid grouped by category + [id] detail
 │   │   ├── search/            # Live search (debounced backend API)
-│   │   ├── login/             # Login + register (mode toggle)
+│   │   ├── login/             # Login + register (mode toggle) + forgot password link
+│   │   ├── forgot-password/   # Email form → triggers reset token
+│   │   ├── reset-password/    # Token from URL → set new password
 │   │   └── layout.tsx         # Sets dir="rtl" for Arabic
 │   ├── admin/                 # Admin dashboard (real JWT auth)
 │   │   ├── login/             # Admin login (checks role=admin in JWT)
-│   │   ├── dashboard/         # KPI cards + recent orders
-│   │   ├── orders/            # Order list + [id] detail
-│   │   ├── products/          # Product list + new/ + [id]/edit/
-│   │   ├── inventory/         # Stock management
+│   │   ├── dashboard/         # KPI cards + recent orders + revenue chart + top products
+│   │   ├── orders/            # Order list + [id] detail (search + status + date range filter)
+│   │   ├── products/          # Product list (search) + new/ + [id]/edit/
+│   │   ├── inventory/         # Stock management (search)
 │   │   ├── customers/         # Customer list (searchable)
-│   │   ├── analytics/         # Revenue chart, top products, status breakdown
+│   │   ├── analytics/         # Revenue chart, top products, status breakdown (7/30/90d presets)
 │   │   └── layout.tsx         # Sidebar nav, auth guard
+│   ├── offline/               # Offline fallback page (served by SW when navigation fails)
 │   ├── page.tsx               # Root redirect → /fr
 │   └── layout.tsx             # Root pass-through layout
-├── components/        # home/, products/, checkout/, cart/, layout/, ui/
+├── components/
+│   ├── home/, products/, checkout/, cart/, layout/, ui/   # existing
+│   ├── products/FavoriteButton.tsx   # Heart toggle — add/remove favorite (client component)
+│   └── recipes/AddBellatIngredientsButton.tsx  # Adds all Bellat recipe ingredients to cart
 ├── context/
 │   ├── AuthContext.tsx        # JWT + refresh token, login/logout
 │   └── CheckoutContext.tsx    # Multi-step checkout state (sessionStorage)
 ├── lib/
-│   └── api.ts                 # Central API client — ALL backend calls go here
+│   ├── api.ts                 # Central API client — ALL backend calls go here
+│   └── data/
+│       ├── products.ts        # Static product helpers (prototype-era, still used by some pages)
+│       ├── categories.ts      # Static category helpers
+│       └── recipes.ts         # Static recipe data (6 bilingual recipes, type definitions)
+├── public/
+│   ├── manifest.json          # PWA manifest (theme #16a34a, start_url /fr)
+│   ├── sw.js                  # Service worker v2 (cache-first assets, network-first pages, /offline fallback)
+│   └── icons/                 # icon-192.png, icon-512.png (green "B" logo, required for install prompt)
 ├── types/             # product.ts, category.ts, order.ts, cart.ts
 ├── messages/          # fr.json, ar.json (translation keys)
 ├── proxy.ts           # next-intl middleware (Next.js 16 uses proxy.ts not middleware.ts)
@@ -118,12 +136,14 @@ web/
 **Module structure**:
 ```
 src/
-├── auth/          # POST /api/auth/register, /login, /refresh
+├── auth/          # POST /api/auth/register, /login, /refresh, /forgot-password, /reset-password
 ├── products/      # GET /api/products, /categories; POST/PUT/DELETE /api/admin/products
 ├── orders/        # GET/POST /api/orders; PATCH /cancel, /reorder; GET/PATCH /api/admin/orders
 ├── inventory/     # GET/PATCH /api/admin/inventory; batch; alerts
-├── users/         # GET/PATCH /api/users/me; CRUD /api/users/me/addresses; GET /api/admin/users
-├── analytics/     # GET /api/admin/analytics
+├── users/         # GET/PATCH /api/users/me; DELETE /api/users/me; CRUD /api/users/me/addresses; GET /api/admin/users
+├── favorites/     # GET/POST/DELETE /api/favorites/:productId (JWT auth, customer)
+├── analytics/     # GET /api/admin/analytics?from=&to=
+├── mail/          # MailService — SendGrid v3 via native https (no extra package)
 ├── prisma/        # PrismaService (NestJS DI wrapper around PrismaClient)
 └── common/        # RolesGuard, @Roles() decorator, LoggerMiddleware
 ```
@@ -133,6 +153,9 @@ src/
 - Access token: 15 minutes (`JWT_SECRET`)
 - Refresh token: 7 days (`JWT_REFRESH_SECRET`)
 - Admin routes protected with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`
+- Account lockout: 5 failed login attempts → 15-min in-memory lock (ephemeral; Redis upgrade deferred)
+- Password reset: `POST /api/auth/forgot-password` generates UUID token (1h TTL, in-memory); `POST /api/auth/reset-password` validates + updates password. `MailService` sends branded HTML email via SendGrid; logs link to console when `SENDGRID_API_KEY=REPLACE_ME`
+- Delete account: `DELETE /api/users/me` — blocked if user has active (non-cancelled/delivered) orders
 
 **Order state machine**: `pending → confirmed → preparing → out_for_delivery → delivered`
 Invalid transitions return 400. Cancellation only allowed from `pending`.
@@ -153,8 +176,9 @@ The api-gateway has its own `src/prisma/prisma.service.ts` (NestJS DI wrapper) b
 - `DATABASE_URL` — pooled via pgBouncer (port 6543) — used at runtime
 - `DIRECT_URL` — direct connection (port 5432) — used by `prisma migrate` only
 
-**Models**: Category, Product, User, Address, Order, OrderItem
+**Models**: Category, Product, User, Address, Order, OrderItem, Favorite
 **Enums**: `UserRole` (customer, admin), `StockStatus` (in_stock, low_stock, out_of_stock), `OrderStatus`
+**Latest migration**: `20260321_add_favorites` — adds `favorites` table (`userId` + `productId` unique constraint, cascade delete)
 
 ---
 
@@ -207,7 +231,8 @@ Bellat (CVA — Conserverie de Viandes d'Algérie) — B2C retail and B2B wholes
   - `localhost:3002` — API gateway (NestJS)
   - Supabase dashboard — production DB
 - **Admin credentials**: `admin@bellat.net` / `demo123` — hits real backend; JWT role=admin required
-- **Check `/TODO.md`** for full roadmap — Phase 1 (~26/32 done), Phase 2 (~28/30 done), Phase 3 (~13/18 done)
+- **Check `/TODO.md`** for full roadmap — Phase 1 (~33/35 done), Phase 2 (~31/32 done ✅), Phase 3 (~18/22 done)
+- **New env vars** (api-gateway): `SENDGRID_API_KEY`, `MAIL_FROM`, `APP_URL` — added to `apps/api-gateway/.env`
 
 ## Out of Scope
 

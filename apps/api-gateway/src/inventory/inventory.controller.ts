@@ -6,11 +6,15 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
   ApiQuery,
@@ -36,15 +40,17 @@ export class InventoryController {
   @ApiOperation({ summary: '[Admin] List all products with stock status + summary counts' })
   @ApiQuery({ name: 'stockStatus', enum: StockStatus, required: false })
   @ApiQuery({ name: 'categoryId', required: false })
+  @ApiQuery({ name: 'q', required: false, description: 'Search by product name (FR or AR)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   findAll(
     @Query('stockStatus') stockStatus?: StockStatus,
     @Query('categoryId') categoryId?: string,
+    @Query('q') q?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.inventoryService.findAll({ stockStatus, categoryId, page, limit });
+    return this.inventoryService.findAll({ stockStatus, categoryId, q, page, limit });
   }
 
   @Get('alerts')
@@ -65,5 +71,14 @@ export class InventoryController {
   @ApiBody({ type: BatchUpdateStockDto })
   batchUpdate(@Body() dto: BatchUpdateStockDto) {
     return this.inventoryService.batchUpdate(dto);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: '[Admin] Import stock levels from CSV file (productId,stockStatus columns)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } })) // 2 MB max
+  importCsv(@UploadedFile() file: Express.Multer.File) {
+    return this.inventoryService.importFromCsv(file.buffer);
   }
 }

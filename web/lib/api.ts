@@ -108,6 +108,26 @@ export async function fetchProductById(id: string): Promise<Product | undefined>
   }
 }
 
+export interface AutocompleteSuggestion {
+  id:       string;
+  nameFr:   string;
+  nameAr:   string;
+  imageUrl: string | null;
+}
+
+export async function fetchAutocomplete(q: string): Promise<AutocompleteSuggestion[]> {
+  if (!q || q.trim().length < 2) return [];
+  try {
+    const url = new URL(`${API_BASE}/api/products/autocomplete`);
+    url.searchParams.set('q', q);
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
 // ── Categories ────────────────────────────────────────────────────────────────
 
 export async function fetchCategories(): Promise<Category[]> {
@@ -229,6 +249,28 @@ export async function loginUser(email: string, password: string): Promise<{ acce
   return json;
 }
 
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Erreur serveur');
+  return json;
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Erreur serveur');
+  return json;
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export interface AdminOrder {
@@ -280,11 +322,14 @@ export async function adminLogin(email: string, password: string): Promise<{ acc
 
 export async function fetchAdminOrders(
   token: string,
-  params?: { status?: string; page?: number },
+  params?: { status?: string; page?: number; q?: string; from?: string; to?: string },
 ): Promise<{ data: AdminOrder[]; meta: { total: number; page: number; totalPages: number } }> {
   const url = new URL(`${API_BASE}/api/admin/orders`);
   if (params?.status) url.searchParams.set('status', params.status);
   if (params?.page) url.searchParams.set('page', String(params.page));
+  if (params?.q) url.searchParams.set('q', params.q);
+  if (params?.from) url.searchParams.set('from', params.from);
+  if (params?.to) url.searchParams.set('to', params.to);
   const res = await authFetch(url.toString(), { cache: 'no-store' }, token);
   if (!res.ok) return { data: [], meta: { total: 0, page: 1, totalPages: 0 } };
   return res.json();
@@ -311,12 +356,13 @@ export async function adminUpdateOrderStatus(token: string, orderId: string, sta
 
 export async function fetchAdminInventory(
   token: string,
-  params?: { stockStatus?: string; page?: number; limit?: number },
+  params?: { stockStatus?: string; page?: number; limit?: number; q?: string },
 ): Promise<InventoryResponse> {
   const url = new URL(`${API_BASE}/api/admin/inventory`);
   if (params?.stockStatus) url.searchParams.set('stockStatus', params.stockStatus);
   if (params?.page) url.searchParams.set('page', String(params.page));
   if (params?.limit) url.searchParams.set('limit', String(params.limit));
+  if (params?.q) url.searchParams.set('q', params.q);
   const res = await authFetch(url.toString(), { cache: 'no-store' }, token);
   if (!res.ok) return { data: [], meta: { total: 0, page: 1, totalPages: 0 }, summary: { inStock: 0, lowStock: 0, outOfStock: 0 } };
   return res.json();
@@ -381,6 +427,20 @@ export async function adminUpdateStock(
   return res.json();
 }
 
+export async function adminImportInventoryCsv(
+  token: string,
+  file: File,
+): Promise<{ updated: number; skipped: number; errors: string[] } | null> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await authFetch(`${API_BASE}/api/admin/inventory/import`, {
+    method: 'POST',
+    body: formData,
+  }, token);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 // ── User Profile & Addresses ──────────────────────────────────────────────────
 
 export interface UserProfile {
@@ -425,6 +485,44 @@ export async function updateProfile(
   return json;
 }
 
+export async function deleteAccount(token: string): Promise<void> {
+  const res = await authFetch(`${API_BASE}/api/users/me`, { method: 'DELETE' }, token);
+  if (!res.ok) {
+    const json = await res.json();
+    const msg = Array.isArray(json.message) ? json.message.join(', ') : (json.message ?? 'Erreur');
+    throw new Error(msg);
+  }
+}
+
+// ── Favorites ────────────────────────────────────────────────────────────────
+
+export interface FavoriteProduct {
+  id: string;
+  nameFr: string;
+  nameAr: string;
+  price: string | number;
+  unit: string | null;
+  imageUrl: string | null;
+  stockStatus: 'in_stock' | 'low_stock' | 'out_of_stock';
+  isActive: boolean;
+  favoritedAt: string;
+  category?: { id: string; nameFr: string; nameAr: string } | null;
+}
+
+export async function fetchFavorites(token: string): Promise<FavoriteProduct[]> {
+  const res = await authFetch(`${API_BASE}/api/favorites`, { cache: 'no-store' }, token);
+  if (!res.ok) return [];
+  return res.json() as Promise<FavoriteProduct[]>;
+}
+
+export async function addFavorite(token: string, productId: string): Promise<void> {
+  await authFetch(`${API_BASE}/api/favorites/${productId}`, { method: 'POST' }, token);
+}
+
+export async function removeFavorite(token: string, productId: string): Promise<void> {
+  await authFetch(`${API_BASE}/api/favorites/${productId}`, { method: 'DELETE' }, token);
+}
+
 export async function fetchAddresses(token: string): Promise<Address[]> {
   const res = await authFetch(`${API_BASE}/api/users/me/addresses`, { cache: 'no-store' }, token);
   if (!res.ok) return [];
@@ -447,6 +545,20 @@ export async function createAddress(token: string, data: Omit<Address, 'id'>): P
 
 export async function deleteAddress(token: string, addressId: string): Promise<void> {
   await authFetch(`${API_BASE}/api/users/me/addresses/${addressId}`, { method: 'DELETE' }, token);
+}
+
+export async function updateAddress(token: string, addressId: string, data: Partial<Omit<Address, 'id'>>): Promise<Address> {
+  const res = await authFetch(`${API_BASE}/api/users/me/addresses/${addressId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }, token);
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = Array.isArray(json.message) ? json.message.join(', ') : (json.message ?? 'Erreur');
+    throw new Error(msg);
+  }
+  return json;
 }
 
 export async function setDefaultAddress(token: string, addressId: string): Promise<Address> {
@@ -482,12 +594,80 @@ export interface AnalyticsSummary {
   ordersByStatus: Record<string, number>;
   dailyRevenue: { date: string; revenue: number }[];
   topProducts: { productId: string; nameFr: string; revenue: number; orderCount: number }[];
+  categoryRevenue: { categoryId: string; nameFr: string; revenue: number }[];
 }
 
-export async function fetchAdminAnalytics(token: string): Promise<AnalyticsSummary | null> {
-  const res = await authFetch(`${API_BASE}/api/admin/analytics`, { cache: 'no-store' }, token);
+export async function fetchAdminAnalytics(
+  token: string,
+  params?: { from?: string; to?: string },
+): Promise<AnalyticsSummary | null> {
+  const url = new URL(`${API_BASE}/api/admin/analytics`);
+  if (params?.from) url.searchParams.set('from', params.from);
+  if (params?.to) url.searchParams.set('to', params.to);
+  const res = await authFetch(url.toString(), { cache: 'no-store' }, token);
   if (!res.ok) return null;
   return res.json();
+}
+
+export interface CustomerStats {
+  totalCustomers: number;
+  activeCustomers: number;
+  newThisMonth: number;
+  dailyRegistrations: { date: string; count: number }[];
+}
+
+export async function fetchAdminCustomerStats(token: string): Promise<CustomerStats | null> {
+  const res = await authFetch(`${API_BASE}/api/admin/analytics/customers`, { cache: 'no-store' }, token);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export interface InventoryAlerts {
+  total: number;
+  products: {
+    id: string;
+    nameFr: string;
+    nameAr: string;
+    categoryId: string | null;
+    stockStatus: string;
+    updatedAt: string;
+  }[];
+}
+
+export async function fetchAdminInventoryAlerts(token: string): Promise<InventoryAlerts> {
+  const res = await authFetch(`${API_BASE}/api/admin/inventory/alerts`, { cache: 'no-store' }, token);
+  if (!res.ok) return { total: 0, products: [] };
+  return res.json();
+}
+
+// ── Admin Settings ────────────────────────────────────────────────────────────
+
+export interface Setting {
+  key: string;
+  value: string;
+  label: string;
+  description: string | null;
+  updatedAt: string;
+}
+
+export async function fetchAdminSettings(token: string): Promise<Setting[]> {
+  const res = await authFetch(`${API_BASE}/api/admin/settings`, { cache: 'no-store' }, token);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function updateAdminSetting(token: string, key: string, value: string): Promise<Setting> {
+  const res = await authFetch(`${API_BASE}/api/admin/settings/${encodeURIComponent(key)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  }, token);
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = Array.isArray(json.message) ? json.message.join(', ') : (json.message ?? 'Erreur');
+    throw new Error(msg);
+  }
+  return json;
 }
 
 export async function registerUser(

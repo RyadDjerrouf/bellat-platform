@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
-import { ArrowLeft, MapPin, Calendar, Clock, CreditCard } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Clock, CreditCard, Radio } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchOrder, cancelOrder, type Order } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { useOrderUpdates } from '@/hooks/useOrderUpdates';
 
 const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered'];
 
@@ -40,6 +41,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) { router.replace(`/${locale}/login`); return; }
@@ -47,6 +49,17 @@ export default function OrderDetailPage() {
       .then((o) => { if (!o) router.replace(`/${locale}/orders`); else setOrder(o); })
       .finally(() => setIsLoading(false));
   }, [isAuthenticated, token, orderId, locale, router]);
+
+  // Real-time status updates via WebSocket
+  const handleStatusUpdate = useCallback((newStatus: string) => {
+    setLiveStatus(newStatus);
+    const label = STATUS_META[newStatus]?.[ar ? 'ar' : 'fr'] ?? newStatus;
+    toast.success(ar ? `تم تحديث الطلب: ${label}` : `Commande mise à jour : ${label}`);
+  }, [ar]);
+  useOrderUpdates(orderId, token ?? null, handleStatusUpdate);
+
+  // Merge live WS status with the fetched order so the UI always reflects the latest
+  const displayStatus = liveStatus ?? order?.status ?? 'pending';
 
   const handleCancel = async () => {
     if (!order) return;
@@ -76,9 +89,9 @@ export default function OrderDetailPage() {
 
   if (!order) return null;
 
-  const s = STATUS_META[order.status] ?? STATUS_META.pending;
-  const currentStepIdx = STATUS_STEPS.indexOf(order.status);
-  const isCancelled = order.status === 'cancelled';
+  const s = STATUS_META[displayStatus] ?? STATUS_META.pending;
+  const currentStepIdx = STATUS_STEPS.indexOf(displayStatus);
+  const isCancelled = displayStatus === 'cancelled';
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -92,6 +105,13 @@ export default function OrderDetailPage() {
         <div>
           <h1 className="font-mono text-xl font-bold text-gray-900">{order.id}</h1>
           <p className="text-sm text-gray-400 mt-0.5">{formatDate(order.createdAt)}</p>
+          {/* Live indicator — shown once a WS update has been received */}
+          {liveStatus && (
+            <span className="inline-flex items-center gap-1 text-xs text-green-600 mt-1">
+              <Radio className="h-3 w-3 animate-pulse" />
+              {ar ? 'مباشر' : 'En direct'}
+            </span>
+          )}
         </div>
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${s.color}`}>
           {ar ? s.ar : s.fr}

@@ -1,13 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Security headers — HSTS, X-Frame-Options, X-Content-Type-Options, etc.
+  app.use(helmet());
+
   // All routes are prefixed with /api (e.g. GET /api/health)
   app.setGlobalPrefix('api');
+
+  // Use Socket.IO adapter for WebSocket gateways (e.g. real-time order updates)
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // CORS — in production, replace with explicit Supabase + frontend origins
   app.enableCors({

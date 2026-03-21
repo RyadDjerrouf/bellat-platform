@@ -7,6 +7,10 @@ import { getMessages } from 'next-intl/server';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
+import OfflineBanner from '@/components/OfflineBanner';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import { OfflineSyncProvider } from '@/components/OfflineSyncProvider';
 import '../globals.css';
 
 const inter = Inter({
@@ -46,6 +50,10 @@ export default async function LocaleLayout({ children, params }: Props) {
               <BottomNav />
             </div>
             <Toaster position="top-center" />
+            <ServiceWorkerRegistration />
+            <OfflineSyncProvider />
+            <OfflineBanner />
+            <PWAInstallPrompt />
           </CartProvider>
           </AuthProvider>
         </NextIntlClientProvider>

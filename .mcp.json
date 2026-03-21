@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "semgrep": {
+      "command": "semgrep",
+      "args": ["mcp"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--browserUrl",
+        "ws://127.0.0.1:9222/devtools/browser/c9344012-15f9-4b33-817e-d9fb4b2541df"
+      ]
+    }
+  }
+}

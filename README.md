@@ -4,21 +4,25 @@ A modern, bilingual e-commerce platform for **CVA (Conserverie de Viandes d'Alg�
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-10-red)](https://nestjs.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
 ## Current Status — March 2026
 
-| Layer | Status | Tech |
+| Layer | Status | Notes |
 |---|---|---|
-| Frontend `/web` | ✅ Prototype migrated, working | Next.js 16 + React 19 + Tailwind 4 |
-| Bilingual routing | ✅ Live (`/fr/*`, `/ar/*`) | next-intl 4.7 |
-| Cart + Checkout | ✅ Working (mock data) | React Context + localStorage |
-| Admin dashboard | ✅ Display skeleton (mock login) | — |
-| Backend microservices | ⏳ Not started | NestJS 10 (planned) |
-| Database | ⏳ Not connected | PostgreSQL 15 + Prisma 5 (planned) |
-| Infrastructure | ✅ Docker Compose ready | Postgres + Redis + MinIO |
+| Frontend `/web` | ✅ Live | Next.js 16 + React 19 + Tailwind 4 — all pages wired to real API |
+| Bilingual routing | ✅ Live | `/fr/*` (French LTR) and `/ar/*` (Arabic RTL) via next-intl 4.7 |
+| Backend API | ✅ Live | NestJS 10 on port 3002 — auth, products, orders, inventory, analytics, favorites |
+| Database | ✅ Live | Supabase (PostgreSQL 15) + Prisma 5 — 7 models, migrations applied |
+| Admin dashboard | ✅ Live | Full JWT auth, orders + products + inventory + customers + analytics |
+| PWA | ✅ Live | Service worker, manifest, icons, offline fallback page |
+| Email | ✅ Partial | Password reset via SendGrid (set `SENDGRID_API_KEY` in `.env`) |
+| CI/CD | ⏳ Not started | GitHub Actions planned |
+| Delivery zones | ⏳ Deferred | Per-wilaya fee config (Phase 1.9) |
+| SMS / Push | ⏳ Blocked | Phase 4 — Algerian SMS gateway + FCM |
 
 **Target Launch:** Q2 2026
 
@@ -27,50 +31,61 @@ A modern, bilingual e-commerce platform for **CVA (Conserverie de Viandes d'Alg�
 ## Quick Start
 
 ```bash
-# Frontend (active development)
+# 1. Frontend
 cd web && npm install
-cd web && npm run dev      # http://localhost:3000
+cd web && npm run dev          # http://localhost:3000 → /fr
 
-# Infrastructure (when backend work begins)
-docker-compose up -d       # PostgreSQL + Redis + MinIO
+# 2. Backend
+cd apps/api-gateway && npm install
+cd apps/api-gateway && npm run dev   # http://localhost:3002
+
+# 3. Database (Supabase — already configured, no local Docker needed)
+cd libs/database && npx prisma studio   # browse data
 ```
 
-See [.claude/QUICKSTART.md](.claude/QUICKSTART.md) for full setup instructions.
+See [CLAUDE.md](CLAUDE.md) for all commands, architecture details, and dev standards.
 
 ---
 
 ## Architecture
 
-### Monorepo Structure
-
 ```
 bellat-platform/
-├── web/               # ← Active: Next.js 16 frontend (prototype migrated)
-├── apps/              # ← Future: NestJS microservices (api-gateway, auth, product, order, delivery, notification)
-├── libs/              # ← Future: shared database/Prisma, types, common utilities
-├── docs/              # Reference: schema-prototype.sql (database design)
-├── docker-compose.yml # Local infrastructure: PostgreSQL + Redis + MinIO
-├── .claude/           # Project documentation
-└── CLAUDE.md          # Claude Code development guide
+├── web/                # Next.js 16 frontend (customer shop + admin dashboard)
+├── apps/
+│   └── api-gateway/    # NestJS 10 REST API (port 3002)
+├── libs/
+│   └── database/       # Prisma schema + migrations (source of truth for DB)
+├── docs/               # Reference docs
+└── CLAUDE.md           # Development guide (architecture, patterns, standards)
 ```
 
-### Target Stack (Phase 1 complete vision)
-
-- **Frontend:** Next.js 16, React 19, Tailwind CSS 4, next-intl (bilingual), Zustand
-- **Backend:** NestJS 10 microservices, Prisma 5, PostgreSQL 15, Redis 7
-- **Infrastructure:** Docker + Kubernetes, Cloudflare CDN, GitHub Actions CI/CD
+**Stack:**
+- **Frontend:** Next.js 16, React 19, Tailwind CSS 4, next-intl 4.7, lucide-react, sonner
+- **Backend:** NestJS 10, Prisma 5, JWT HS256, bcrypt, class-validator, @nestjs/swagger
+- **Database:** Supabase (PostgreSQL 15) — pooled via pgBouncer
+- **Infrastructure:** Docker Compose (local dev), Kubernetes (planned prod)
 
 ---
 
-## Working Features (frontend, mock data)
+## Live Features
 
-- **Bilingual routing** — `/fr/*` (French LTR) and `/ar/*` (Arabic RTL)
-- **Home page** — hero banner, category grid, popular products
-- **Product catalog** — listing, detail pages, 20+ products in 5 categories
-- **Shopping cart** — add/remove, quantity, subtotal, localStorage persistence
-- **4-step checkout** — address → delivery slot → review → confirmation
-- **Admin dashboard** — `/admin` with mock login (admin@bellat.net / demo123)
-- **Mobile-first** — bottom nav, responsive grids, 44px touch targets
+**Customer:**
+- Bilingual shop (`/fr/*`, `/ar/*`) — products, categories, search
+- Cart (localStorage) → checkout → real orders (`BLT-YYYYMMDD-NNNNN`)
+- Order history with status filter + tracking timeline + cancel/reorder
+- Profile, saved addresses (full CRUD + inline edit), favorites
+- Password recovery (email link via SendGrid)
+- Recipes page — 6 bilingual recipes with "add all Bellat products to cart"
+- PWA — installable, offline fallback page
+
+**Admin (`/admin`):**
+- Login with `admin@bellat.net` / `demo123` (real JWT, role=admin)
+- Orders — list, detail, advance status, search, date range + status filters
+- Products — list, create, edit, deactivate, stock management
+- Inventory — stock levels, alerts, batch update, search
+- Customers — searchable list
+- Analytics — KPI cards, daily revenue chart, top products, 7/30/90d presets
 
 ---
 
@@ -78,26 +93,25 @@ bellat-platform/
 
 | Document | Purpose |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | Development guide for Claude Code sessions |
-| [.claude/QUICKSTART.md](.claude/QUICKSTART.md) | Developer setup and commands |
-| [.claude/SUMMARY.md](.claude/SUMMARY.md) | Project status and business rules reference |
-| [.claude/project-initialization.md](.claude/project-initialization.md) | Full architecture, DB schema, API design |
+| [CLAUDE.md](CLAUDE.md) | Development guide — architecture, patterns, all commands |
+| [TODO.md](TODO.md) | Full roadmap with per-task acceptance criteria |
+| [.claude/QUICKSTART.md](.claude/QUICKSTART.md) | New developer setup guide |
 | [.claude/TECH-DECISIONS.md](.claude/TECH-DECISIONS.md) | Why each technology was chosen |
-| [TODO.md](TODO.md) | 110-task development roadmap |
-| [docs/schema-prototype.sql](docs/schema-prototype.sql) | Database schema reference (from prototype) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch naming, commit style, PR process |
+| [docs/schema-prototype.sql](docs/schema-prototype.sql) | Original DB schema reference |
 
 ---
 
 ## Algerian Market Context
 
-- **Bilingual:** Arabic (RTL) primary, French (LTR) secondary
-- **Currency:** DZD (Algerian Dinar) — no decimal places
+- **Bilingual:** Arabic (RTL) and French (LTR) — use `start`/`end` not `left`/`right` in Tailwind
+- **Currency:** DZD — no decimal places, format with `toLocaleString('fr-DZ')`
 - **Delivery zones:** 48 Wilayas (administrative divisions)
-- **Payment:** Cash on Delivery (~80%), B2B credit/invoicing
-- **Phone format:** +213 + 9 digits
+- **Payment:** Cash on Delivery primary — `paymentMethod: "cash_on_delivery"`
+- **Phone format:** `+213XXXXXXXXX`
 
 ---
 
 **Client:** Bellat Group (CVA) — Tessala-El-Merdja, Algeria — [bellat.net](https://bellat.net)
 
-*"غذاؤك ترعاه أياد أمينة" (Your food is cared for by trustworthy hands)*
+*"غذاؤك ترعاه أياد أمينة" — Your food is cared for by trustworthy hands*

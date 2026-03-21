@@ -1,21 +1,42 @@
 # Technology Decisions
 
 **Bellat Digital Ordering Platform**
-**Last Updated:** March 18, 2026
+**Last Updated:** March 21, 2026
 
 ---
 
-## What's Actually in Use Today
+## Stack in Use Today
 
-The prototype (migrated into `/web`) established the actual frontend stack. Some decisions from the January 2026 planning phase were revised during prototype development:
+| Layer | Technology | Version |
+|---|---|---|
+| Frontend | Next.js (App Router) | 16.1.1 |
+| UI framework | React | 19.2.3 |
+| Styling | Tailwind CSS | 4.x |
+| i18n | next-intl | 4.7 |
+| Icons | lucide-react | latest |
+| Toasts | sonner | latest |
+| Backend | NestJS | 10.x |
+| ORM | Prisma | 5.x |
+| Database | PostgreSQL 15 (Supabase) | 15.x |
+| Auth | JWT HS256 | — |
+| Node.js | — | 18 LTS |
+| TypeScript | — | 5.x |
+
+---
+
+## Decisions Made During Prototype (vs. Original Plan)
 
 | Original Plan | Actual Choice | Why Changed |
 |---|---|---|
 | Next.js 14 | **Next.js 16.1.1** | Used latest stable throughout prototype |
 | React 18 | **React 19.2.3** | Next.js 16 ships with React 19 |
-| Tailwind CSS 3 | **Tailwind CSS 4** | v4 CSS-first config is simpler, no config file needed |
+| Tailwind CSS 3 | **Tailwind CSS 4** | CSS-first config — no `tailwind.config.js` needed |
 | i18next / next-i18next | **next-intl 4.7** | Better App Router support, cleaner locale routing |
-| Zustand (cart state) | **React Context** | Sufficient for prototype; Zustand planned for Phase 2 PWA |
+| Zustand (cart state) | **React Context** | Sufficient for Phase 1; Zustand deferred to Phase 2 |
+| Microservices (6 NestJS services) | **Single API gateway** | Simpler to ship; can extract services later if needed |
+| RS256 JWT | **HS256 JWT** | Simpler for single-service setup; RS256 deferred to prod hardening |
+| Redis for sessions | **In-memory Maps** | Lockout + reset tokens are ephemeral; Redis deferred to Phase 4 |
+| Workbox (service worker) | **Custom sw.js** | Avoids extra dependency; cache-first + network-first patterns are simple enough |
 
 ---
 
@@ -23,54 +44,54 @@ The prototype (migrated into `/web`) established the actual frontend stack. Some
 
 ### Next.js 16 (App Router)
 - Server-side rendering for product catalog SEO
-- App Router with `[locale]` dynamic segments for bilingual routing
-- Built-in image optimization (WebP/AVIF, configured in `next.config.ts`)
-- `proxy.ts` for middleware (Next.js 16 renamed `middleware.ts` → `proxy.ts`)
-
-### React 19
-- Ships with Next.js 16 — no separate version choice needed
-- Server Components for product pages, Client Components for cart/checkout
+- `[locale]` dynamic segments for bilingual routing
+- Built-in image optimization (WebP/AVIF)
+- `proxy.ts` for middleware (Next.js 16 uses `proxy.ts`, not `middleware.ts`)
 
 ### Tailwind CSS 4
 - CSS-first config: `@import "tailwindcss"` + `@theme` blocks in `globals.css`
-- No `tailwind.config.ts` — configuration lives in CSS
-- Uses `@tailwindcss/postcss` plugin in `postcss.config.mjs`
-- Use `start`/`end` instead of `left`/`right` for RTL support
+- No `tailwind.config.ts` — configured via `@tailwindcss/postcss` in `postcss.config.mjs`
+- Always use `start`/`end` (not `left`/`right`) for RTL support
 
 ### next-intl 4.7
-- URL-based locale routing: `/fr/*` (French LTR) and `/ar/*` (Arabic RTL)
+- URL-based routing: `/fr/*` LTR and `/ar/*` RTL
 - `proxy.ts` handles locale detection and redirects
-- `messages/fr.json` and `messages/ar.json` for translations
 - `useTranslations()` in client components, `getTranslations()` in server components
+- Never use i18next — next-intl only
 
-### State Management (current)
-- **CartContext** — React Context + `useReducer` + localStorage (`bellat_cart` key)
-- **CheckoutContext** — React Context for 4-step checkout flow
-- **Plan for Phase 2:** Zustand for authenticated cart synced to backend
+### State Management
+- **CartContext** — React Context + localStorage (`bellat_cart`)
+- **AuthContext** — JWT + refresh token, `bellat_token` / `bellat_refresh_token`
+- **CheckoutContext** — sessionStorage for multi-step checkout
+- Zustand deferred — React Context is sufficient until backend cart sync is needed
 
 ---
 
-## Backend (Planned — not yet built)
+## Backend
 
-### NestJS 10
-- TypeScript-native, modular microservices architecture
+### NestJS 10 (single API gateway)
+- TypeScript-native, modular architecture
 - Dependency injection makes services testable
-- Built-in: auth guards, validation pipes, Swagger/OpenAPI
-- Fastify adapter for better performance than Express
+- Built-in: auth guards, validation pipes, Swagger/OpenAPI at `/api/docs`
+- Express adapter (Fastify deferred — Express is simpler for the team)
 
 ### Prisma 5 + PostgreSQL 15
 - Schema-first ORM with auto-generated TypeScript types
-- Single source of truth: `schema.prisma` → migrations → Prisma Client
-- PostgreSQL pg_trgm for fuzzy full-text search (Arabic + French)
-- JSONB for flexible data (product images, delivery addresses, nutritional info)
-- **Reference schema:** `docs/schema-prototype.sql` (18 tables designed)
+- Single source of truth: `libs/database/prisma/schema.prisma`
+- 7 models: Category, Product, User, Address, Order, OrderItem, Favorite
+- JSONB for delivery address snapshot in orders
+- pgBouncer pooling via Supabase (port 6543 for `DATABASE_URL`, port 5432 for `DIRECT_URL`)
 
-### Redis 7
-- Cart persistence (Redis hash per user)
-- JWT refresh token storage
-- OTP codes with 10-minute TTL
-- Rate limiting counters
-- Pub/Sub between microservices
+### JWT HS256
+- HS256 (symmetric) — simpler for single-service; RS256 planned for production hardening
+- Access token: 15 min (`JWT_SECRET`)
+- Refresh token: 7 days (`JWT_REFRESH_SECRET`)
+- Auto-refresh on 401 via `authFetch()` wrapper in `web/lib/api.ts`
+
+### Email — MailService (no extra npm package)
+- Uses Node.js built-in `https` to call SendGrid v3 REST API directly
+- Falls back to `console.log` when `SENDGRID_API_KEY=REPLACE_ME` (local dev)
+- No `@sendgrid/mail` package — keeps dependencies minimal
 
 ---
 
@@ -79,67 +100,36 @@ The prototype (migrated into `/web`) established the actual frontend stack. Some
 | Concern | Solution |
 |---|---|
 | Passwords | bcrypt, cost factor 12 |
-| JWT signing | RS256 (asymmetric) |
+| JWT signing | HS256 (RS256 deferred to production hardening) |
 | Access token TTL | 15 minutes |
 | Refresh token TTL | 7 days |
-| Rate limiting | 100 req/min public, 1,000 authenticated |
-| Input validation | Zod (frontend), class-validator (NestJS) |
-| Session storage | httpOnly cookies (XSS protection) |
+| Rate limiting | 100 req/min per IP — ThrottlerGuard applied globally |
+| Input validation | class-validator DTOs on all POST/PATCH endpoints |
+| Account lockout | 5 failed logins → 15-min in-memory lock (Redis upgrade deferred) |
 
 ---
 
-## Infrastructure (Planned)
+## Integrations
 
-### Docker + Kubernetes
-- Docker Compose for local dev (Postgres + Redis + MinIO) — **already configured**
-- Kubernetes for staging/production (auto-scaling for Ramadan/Eid peaks)
-
-### Cloudflare
-- CDN, WAF, DDoS protection, free SSL
-- Good MENA coverage for Algeria latency
-
-### GitHub Actions
-- CI: lint + type-check + build on every PR
-- CD: auto-deploy to staging on merge, manual approval for production
+| Service | Status | Purpose |
+|---|---|---|
+| Supabase | ✅ Live | PostgreSQL 15 database hosting |
+| SendGrid | ✅ Wired (key needed) | Password reset emails |
+| Algerian SMS gateway | ⏳ Phase 4 | OTP + order status SMS |
+| Firebase FCM | ⏳ Phase 4 | Push notifications |
+| MinIO / S3 | ⏳ Phase 4 | Product image uploads |
 
 ---
 
-## Integrations (Planned for Phase 4)
-
-| Service | Purpose |
-|---|---|
-| Firebase FCM | Push notifications (web + future mobile) |
-| SendGrid | Transactional email (order confirmation, invoices) |
-| Algerian SMS gateway | OTP + order status SMS (Mobilis/Djezzy/Ooredoo) |
-| MinIO (local) / S3 (prod) | Product images, uploaded documents |
-
----
-
-## Rejected / Deferred
+## Deferred / Rejected
 
 | Technology | Decision | Reason |
 |---|---|---|
 | GraphQL | Rejected | REST sufficient; simpler caching |
 | MongoDB | Rejected | Relational data + ACID needed for B2B credit |
 | Native mobile apps | Phase 2 | PWA sufficient for Phase 1; faster to ship |
-| Zustand (Phase 1) | Deferred | React Context works for prototype; add when backend sync needed |
-| Server-Sent Events | Rejected | WebSockets better for bidirectional order updates |
-
----
-
-## Version Lock
-
-| Technology | Version |
-|---|---|
-| Node.js | 18 LTS |
-| Next.js | 16.1.1 |
-| React | 19.2.3 |
-| Tailwind CSS | 4.x |
-| next-intl | 4.7.0 |
-| NestJS | 10.x (planned) |
-| Prisma | 5.x (planned) |
-| PostgreSQL | 15.x |
-| Redis | 7.x |
-| TypeScript | 5.x |
-
-**Policy:** Minor updates allowed (security patches). Major updates require team discussion.
+| Zustand | Deferred | React Context works until backend cart sync needed |
+| Redis | Deferred (Phase 4) | In-memory Maps sufficient for now; needed for OTP + distributed lockout |
+| Workbox | Rejected | Custom `sw.js` is simpler and has no extra dependency |
+| Microservices | Deferred | Single NestJS gateway ships faster; extract services if scaling needed |
+| RS256 JWT | Deferred | HS256 fine for single-service; RS256 at production hardening |

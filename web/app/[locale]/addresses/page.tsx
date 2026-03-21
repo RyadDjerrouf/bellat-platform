@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
-import { MapPin, Star, Trash2, Plus, X } from 'lucide-react';
+import { MapPin, Star, Trash2, Plus, X, Pencil } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchAddresses,
   createAddress,
+  updateAddress,
   deleteAddress,
   setDefaultAddress,
   type Address,
@@ -38,27 +39,48 @@ export default function AddressesPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSaving, setIsSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  const openEdit = (addr: Address) => {
+    setEditingId(addr.id);
+    setForm({ fullName: addr.fullName, phoneNumber: addr.phoneNumber, addressLine1: addr.addressLine1, wilaya: addr.wilaya, commune: addr.commune, isDefault: addr.isDefault });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
 
   useEffect(() => {
     if (!isAuthenticated) { router.replace(`/${locale}/login`); return; }
     fetchAddresses(token!).then(setAddresses).finally(() => setIsLoading(false));
   }, [isAuthenticated, token, locale, router]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const newAddr = await createAddress(token!, form);
-      setAddresses((prev) => {
-        const list = form.isDefault ? prev.map((a) => ({ ...a, isDefault: false })) : prev;
-        return [newAddr, ...list];
-      });
-      toast.success(ar ? 'تمت إضافة العنوان' : 'Adresse ajoutée');
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      if (editingId) {
+        const updated = await updateAddress(token!, editingId, form);
+        setAddresses((prev) => {
+          const list = form.isDefault ? prev.map((a) => ({ ...a, isDefault: false })) : prev;
+          return list.map((a) => a.id === editingId ? { ...updated } : a);
+        });
+        toast.success(ar ? 'تم تحديث العنوان' : 'Adresse mise à jour');
+      } else {
+        const newAddr = await createAddress(token!, form);
+        setAddresses((prev) => {
+          const list = form.isDefault ? prev.map((a) => ({ ...a, isDefault: false })) : prev;
+          return [newAddr, ...list];
+        });
+        toast.success(ar ? 'تمت إضافة العنوان' : 'Adresse ajoutée');
+      }
+      closeForm();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur');
     } finally {
@@ -109,7 +131,7 @@ export default function AddressesPage() {
           </p>
         </div>
         {!showForm && addresses.length < 10 && (
-          <Button onClick={() => setShowForm(true)} className="flex items-center gap-1.5">
+          <Button onClick={() => { setEditingId(null); setForm(EMPTY_FORM); setShowForm(true); }} className="flex items-center gap-1.5">
             <Plus className="h-4 w-4" />
             {ar ? 'إضافة' : 'Ajouter'}
           </Button>
@@ -121,12 +143,16 @@ export default function AddressesPage() {
         <Card className="mb-4 border-green-200">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-800">{ar ? 'عنوان جديد' : 'Nouvelle adresse'}</h2>
-              <button onClick={() => { setShowForm(false); setForm(EMPTY_FORM); }}>
+              <h2 className="font-semibold text-gray-800">
+                {editingId
+                  ? ar ? 'تعديل العنوان' : "Modifier l'adresse"
+                  : ar ? 'عنوان جديد' : 'Nouvelle adresse'}
+              </h2>
+              <button onClick={closeForm}>
                 <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
               </button>
             </div>
-            <form onSubmit={handleCreate} className="space-y-3">
+            <form onSubmit={handleSave} className="space-y-3">
               {field('Nom complet', 'الاسم الكامل',
                 <input type="text" required value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={inputCls} placeholder="Amine Benali" />
               )}
@@ -150,7 +176,9 @@ export default function AddressesPage() {
                 {ar ? 'عنوان افتراضي' : 'Définir comme adresse par défaut'}
               </label>
               <Button type="submit" disabled={isSaving} className="w-full">
-                {isSaving ? '...' : ar ? 'حفظ العنوان' : "Enregistrer l'adresse"}
+                {isSaving ? '...' : editingId
+                  ? ar ? 'حفظ التعديلات' : 'Enregistrer les modifications'
+                  : ar ? 'حفظ العنوان' : "Enregistrer l'adresse"}
               </Button>
             </form>
           </CardContent>
@@ -199,6 +227,13 @@ export default function AddressesPage() {
                         {ar ? 'افتراضي' : 'Par défaut'}
                       </button>
                     )}
+                    <button
+                      onClick={() => openEdit(addr)}
+                      className="text-gray-400 hover:text-blue-500 transition-colors"
+                      aria-label="Modifier"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => handleDelete(addr.id)}
                       disabled={deleting === addr.id}

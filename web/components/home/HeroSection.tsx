@@ -17,6 +17,8 @@ export function HeroSection({ locale }: HeroSectionProps) {
           fill
           className="object-cover"
           priority
+          sizes="100vw"
+          quality={80}
         />
         <div className="absolute inset-0 bg-black/40"></div>
       </div>

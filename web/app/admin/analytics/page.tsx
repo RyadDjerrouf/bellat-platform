@@ -17,18 +17,39 @@ const STATUS_COLORS: Record<string, string> = {
   out_for_delivery: 'bg-orange-400', delivered: 'bg-green-500', cancelled: 'bg-red-400',
 };
 
+type Preset = '7d' | '30d' | '90d';
+
+function getPresetDates(preset: Preset): { from: string; to: string } {
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date();
+  if (preset === '7d')  from.setDate(from.getDate() - 7);
+  if (preset === '30d') from.setDate(from.getDate() - 30);
+  if (preset === '90d') from.setDate(from.getDate() - 90);
+  return { from: from.toISOString().slice(0, 10), to };
+}
+
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [preset, setPreset] = useState<Preset>('30d');
 
-  useEffect(() => {
+  const load = (p: Preset) => {
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     if (!token) return;
-    fetchAdminAnalytics(token).then((res) => {
+    setIsLoading(true);
+    const { from, to } = getPresetDates(p);
+    fetchAdminAnalytics(token, { from, to }).then((res) => {
       setData(res);
       setIsLoading(false);
     });
-  }, []);
+  };
+
+  useEffect(() => { load('30d'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handlePresetChange = (p: Preset) => {
+    setPreset(p);
+    load(p);
+  };
 
   if (isLoading) {
     return (
@@ -46,7 +67,22 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Analytique</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Analytique</h1>
+        <div className="flex gap-2">
+          {(['7d', '30d', '90d'] as Preset[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => handlePresetChange(p)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                preset === p ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {p === '7d' ? '7 jours' : p === '30d' ? '30 jours' : '90 jours'}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -165,6 +201,37 @@ export default function AdminAnalyticsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Revenue by category */}
+      {data.categoryRevenue && data.categoryRevenue.length > 0 && (() => {
+        const maxCatRevenue = Math.max(...data.categoryRevenue.map((c) => c.revenue), 1);
+        const totalCatRevenue = data.categoryRevenue.reduce((s, c) => s + c.revenue, 0) || 1;
+        const CAT_COLORS = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500'];
+        return (
+          <Card>
+            <CardHeader><CardTitle className="text-sm text-gray-600">Revenus par catégorie</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {data.categoryRevenue.map((c, i) => (
+                <div key={c.categoryId}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-700">{c.nameFr}</span>
+                    <span className="font-semibold">
+                      {c.revenue.toLocaleString('fr-DZ')} DZD
+                      <span className="text-xs text-gray-400 ml-2">({Math.round((c.revenue / totalCatRevenue) * 100)}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${CAT_COLORS[i % CAT_COLORS.length]}`}
+                      style={{ width: `${(c.revenue / maxCatRevenue) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 }

@@ -80,6 +80,7 @@ model Product {
 
   category      Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   orderItems    OrderItem[]
+  favorites     Favorite[]
 
   @@index([categoryId])
   @@map("products")
@@ -102,6 +103,7 @@ model User {
 
   addresses    Address[]
   orders       Order[]
+  favorites    Favorite[]
 
   @@index([email])
   @@map("users")
@@ -165,6 +167,41 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@map("orders")
+}
+
+// ─────────────────────────────────────────────
+// Favorite
+// ─────────────────────────────────────────────
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  productId String   @db.VarChar(50)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("favorites")
+}
+
+// ─────────────────────────────────────────────
+// Setting
+// Key-value store for admin-configurable platform settings
+// ─────────────────────────────────────────────
+
+model Setting {
+  // Dot-namespaced key, e.g. "app.contact_email", "features.welcome_email"
+  key         String   @id @db.VarChar(100)
+  value       String   @db.Text
+  // Human-readable label shown in the admin settings UI
+  label       String   @db.VarChar(200)
+  description String?  @db.VarChar(500)
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
 }
 
 // ─────────────────────────────────────────────

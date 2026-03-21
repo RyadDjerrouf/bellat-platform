@@ -1,6 +1,6 @@
 # Bellat Platform — Quick Start Guide
 
-**Last Updated:** March 18, 2026
+**Last Updated:** March 21, 2026
 
 ---
 
@@ -9,11 +9,10 @@
 ```
 Node.js >= 18.x
 npm >= 9.x
-Docker >= 24.x + Docker Compose >= 2.x
 Git >= 2.x
 ```
 
-**Recommended VS Code extensions:** ESLint, Prettier, Tailwind CSS IntelliSense, Prisma, i18n Ally, GitLens, Docker
+**Recommended VS Code extensions:** ESLint, Prettier, Tailwind CSS IntelliSense, Prisma, i18n Ally, GitLens
 
 ---
 
@@ -22,105 +21,124 @@ Git >= 2.x
 ```bash
 git clone https://github.com/rdjerrouf/bellat-platform.git
 cd bellat-platform
-cd web && npm install     # Install frontend dependencies
+cd web && npm install                       # Frontend deps
+cd ../apps/api-gateway && npm install       # Backend deps
 ```
 
 ---
 
-## 2. Start the Frontend (Active Now)
+## 2. Environment Variables
+
+**Backend** — `apps/api-gateway/.env` (already committed with dev defaults):
+```env
+PORT=3002
+DATABASE_URL="..."          # Supabase pooled connection
+DIRECT_URL="..."            # Supabase direct connection (migrations only)
+JWT_SECRET="..."
+JWT_REFRESH_SECRET="..."
+JWT_EXPIRES_IN="15m"
+JWT_REFRESH_EXPIRES_IN="7d"
+CORS_ORIGINS="http://localhost:3000"
+SENDGRID_API_KEY="REPLACE_ME"   # Set real key for password reset emails
+MAIL_FROM="noreply@bellat.dz"
+APP_URL="http://localhost:3000"
+```
+
+**Frontend** — `web/.env.local` (create if missing):
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3002
+```
+
+---
+
+## 3. Start the Backend
+
+```bash
+cd apps/api-gateway
+npm run dev       # NestJS on http://localhost:3002
+```
+
+Swagger API docs: `http://localhost:3002/api/docs`
+
+---
+
+## 4. Start the Frontend
 
 ```bash
 cd web
-npm run dev               # http://localhost:3000 → redirects to /fr
+npm run dev       # Next.js on http://localhost:3000 → redirects to /fr
 ```
 
-**Test routes:**
+**Key routes:**
 - `http://localhost:3000/fr` — French homepage
 - `http://localhost:3000/ar` — Arabic RTL homepage
 - `http://localhost:3000/fr/products` — product listing
-- `http://localhost:3000/fr/cart` — shopping cart
-- `http://localhost:3000/admin` — admin (login: admin@bellat.net / demo123)
+- `http://localhost:3000/fr/recipes` — recipe pages
+- `http://localhost:3000/admin` — admin dashboard (login: `admin@bellat.net` / `demo123`)
 
 ---
 
-## 3. Infrastructure (when backend work begins)
+## 5. Database
 
-```bash
-# Start PostgreSQL 15 + Redis 7 + MinIO
-docker-compose up -d
-
-# Verify
-docker-compose ps
-
-# Access services
-docker-compose exec postgres psql -U postgres -d bellat
-docker-compose exec redis redis-cli
-```
-
-**Service ports:**
-- PostgreSQL: `localhost:5432` (db: `bellat`, user: `postgres`, pw: `password`)
-- Redis: `localhost:6379`
-- MinIO: `localhost:9000` (API), `localhost:9001` (console) — user: `minioadmin`
-
----
-
-## 4. Environment Variables
-
-```bash
-cp .env.example .env.local
-# Edit .env.local with your values
-```
-
-Key variables (see `.env.example` for full list):
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/bellat
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=...
-```
-
----
-
-## 5. Database (when libs/database exists)
+The database is **Supabase** (cloud PostgreSQL 15) — already provisioned and seeded. No local Docker needed for day-to-day development.
 
 ```bash
 cd libs/database
-npx prisma generate              # Generate client
-npx prisma migrate dev           # Run migrations
-npx prisma db seed               # Seed: 15 categories, sample products
-npx prisma studio                # Open GUI at localhost:5555
+npx prisma studio        # Browse DB at localhost:5555
+npx prisma generate      # Regenerate client after schema changes
+npx prisma migrate dev   # Create + apply a new migration (uses DIRECT_URL)
+npx prisma db seed       # Re-seed categories + products
 ```
 
-**Reference schema:** `docs/schema-prototype.sql` (designed in prototype)
-
----
-
-## 6. Future Backend (not yet scaffolded)
-
-When NestJS apps are added under `apps/`:
-
+**Local Docker** (optional — for fully offline dev):
 ```bash
-# From repo root
-npm run dev -w apps/api-gateway       # API Gateway (port 3002)
-npm run dev -w apps/frontend          # Customer PWA (port 3000)
-npm run dev -w apps/admin             # Admin dashboard (port 3001)
+docker-compose up -d     # PostgreSQL + Redis + MinIO
+# Then update DATABASE_URL in both .env files to use localhost:5432
 ```
 
 ---
 
-## Development Commands
+## 6. Production Build Check
 
 ```bash
 # Frontend
-cd web && npm run dev             # Dev server
-cd web && npm run build           # Production build
-cd web && npm run lint            # ESLint
+cd web && npm run build && npm run lint
 
-# Root (Turbo)
-npm run build                     # Build all packages
-npm run lint                      # Lint all packages
-npm run format                    # Prettier format
-npm run type-check                # TypeScript check
+# Backend
+cd apps/api-gateway && npm run build && npm run lint
 ```
+
+---
+
+## Troubleshooting
+
+**Port already in use:**
+```bash
+lsof -i :3000 && kill -9 <PID>
+lsof -i :3002 && kill -9 <PID>
+```
+
+**Module not found after pulling:**
+```bash
+cd web && rm -rf node_modules && npm install
+cd apps/api-gateway && rm -rf node_modules && npm install
+```
+
+**Prisma client out of sync after schema change:**
+```bash
+cd libs/database && npx prisma generate
+```
+
+**TypeScript errors:**
+```bash
+cd web && npx tsc --noEmit
+cd apps/api-gateway && npm run build
+```
+
+**JWT 401 in browser:**
+- Check `NEXT_PUBLIC_API_URL` in `web/.env.local`
+- Ensure backend is running on port 3002
+- Clear localStorage (`bellat_token`, `bellat_refresh_token`) and re-login
 
 ---
 
@@ -130,9 +148,9 @@ npm run type-check                # TypeScript check
 
 **Commit format (conventional commits):**
 ```
-feat(auth): add JWT refresh token rotation
+feat(auth): add Google OAuth integration
 fix(cart): prevent negative quantities
-feat(products): add category filter
+feat(recipes): add add-all-to-cart button
 ```
 
 **PR checklist:**
@@ -140,28 +158,4 @@ feat(products): add category filter
 - [ ] ESLint clean (`npm run lint`)
 - [ ] Production build passes (`npm run build`)
 - [ ] Both locales tested (`/fr/*` and `/ar/*`)
-
----
-
-## Troubleshooting
-
-**Port already in use:**
-```bash
-lsof -i :3000 && kill -9 <PID>
-```
-
-**Module not found after pulling:**
-```bash
-cd web && rm -rf node_modules && npm install
-```
-
-**Docker DB connection failed:**
-```bash
-docker-compose restart postgres
-docker-compose logs postgres
-```
-
-**TypeScript errors after adding files:**
-```bash
-cd web && npx tsc --noEmit
-```
+- [ ] New DB models: `prisma migrate dev` run and migration committed

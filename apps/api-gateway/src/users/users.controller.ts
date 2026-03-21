@@ -41,6 +41,12 @@ export class UsersController {
     return this.usersService.updateProfile(req.user.id, dto);
   }
 
+  @Delete()
+  @ApiOperation({ summary: 'Delete account (blocked if active orders exist)' })
+  deleteAccount(@Request() req: AuthReq) {
+    return this.usersService.deleteAccount(req.user.id);
+  }
+
   // ── Addresses ────────────────────────────────────────────────────────────────
 
   @Get('addresses')

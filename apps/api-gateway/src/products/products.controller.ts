@@ -36,6 +36,12 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('autocomplete')
+  @ApiOperation({ summary: 'Autocomplete product names (top 5, trigram-powered)' })
+  autocomplete(@Query('q') q: string) {
+    return this.productsService.autocomplete(q ?? '');
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get product details by ID' })
   @ApiParam({ name: 'id', example: 'prod_001' })

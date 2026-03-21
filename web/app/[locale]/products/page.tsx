@@ -17,6 +17,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc'>('newest');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load products and categories from real API
@@ -30,10 +31,15 @@ export default function ProductsPage() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Filter products based on selected category
-  const filteredProducts = selectedCategory
+  // Filter then sort
+  const filteredProducts = (selectedCategory
     ? products.filter((p) => p.category === selectedCategory)
-    : products;
+    : products
+  ).slice().sort((a, b) => {
+    if (sortBy === 'price_asc') return a.price - b.price;
+    if (sortBy === 'price_desc') return b.price - a.price;
+    return 0; // 'newest' — server returns newest first, preserve order
+  });
 
   if (isLoading) {
     return (
@@ -94,13 +100,22 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Products Count */}
-      <div className="mb-4">
+      {/* Count + Sort */}
+      <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-gray-600">
           {locale === 'ar'
             ? `${filteredProducts.length} منتجات`
             : `${filteredProducts.length} produits`}
         </p>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+        >
+          <option value="newest">{locale === 'ar' ? 'الأحدث' : 'Plus récent'}</option>
+          <option value="price_asc">{locale === 'ar' ? 'السعر: الأقل أولاً' : 'Prix croissant'}</option>
+          <option value="price_desc">{locale === 'ar' ? 'السعر: الأعلى أولاً' : 'Prix décroissant'}</option>
+        </select>
       </div>
 
       {/* Products Grid */}

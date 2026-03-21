@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
-import { fetchAdminInventory, adminUpdateStock, type InventoryProduct, type InventoryResponse } from '@/lib/api';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { fetchAdminInventory, adminUpdateStock, adminImportInventoryCsv, type InventoryProduct, type InventoryResponse } from '@/lib/api';
+import { AlertTriangle, CheckCircle, Upload, XCircle } from 'lucide-react';
 
 const ADMIN_TOKEN_KEY = 'bellat_admin_token';
 
@@ -24,6 +24,7 @@ export default function AdminInventoryPage() {
   const [filter, setFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const load = async (stockStatus?: string) => {
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -72,9 +73,41 @@ export default function AdminInventoryPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Inventaire</h1>
-        <p className="text-gray-500 mt-1">Gérez le statut de stock de vos produits</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Inventaire</h1>
+          <p className="text-gray-500 mt-1">Gérez le statut de stock de vos produits</p>
+        </div>
+        <label className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors ${importing ? 'bg-gray-100 text-gray-400' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+          <Upload className="h-4 w-4" />
+          {importing ? 'Import en cours...' : 'Importer CSV'}
+          <input
+            type="file"
+            accept=".csv"
+            className="hidden"
+            disabled={importing}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+              if (!token) return;
+              setImporting(true);
+              try {
+                const result = await adminImportInventoryCsv(token, file);
+                if (result) {
+                  toast.success(`${result.updated} produit(s) mis à jour, ${result.skipped} ignoré(s)`);
+                  if (result.errors.length > 0) toast.warning(`Erreurs: ${result.errors.slice(0, 3).join(', ')}`);
+                  load(filter || undefined);
+                } else {
+                  toast.error('Erreur lors de l\'import');
+                }
+              } finally {
+                setImporting(false);
+                e.target.value = '';
+              }
+            }}
+          />
+        </label>
       </div>
 
       {/* Summary cards */}

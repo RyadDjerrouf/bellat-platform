@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderStatus } from '@prisma/client';
 
@@ -8,6 +8,11 @@ export class OrderQueryDto {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
+
+  @ApiPropertyOptional({ description: 'Search by order ID or customer name', example: 'BLT-20260321' })
+  @IsOptional()
+  @IsString()
+  q?: string;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
@@ -23,4 +28,14 @@ export class OrderQueryDto {
   @Min(1)
   @Max(100)
   limit?: number = 20;
+
+  @ApiPropertyOptional({ description: 'Start date YYYY-MM-DD (admin filter)', example: '2026-01-01' })
+  @IsOptional()
+  @IsString()
+  from?: string;
+
+  @ApiPropertyOptional({ description: 'End date YYYY-MM-DD (admin filter, inclusive)', example: '2026-03-31' })
+  @IsOptional()
+  @IsString()
+  to?: string;
 }

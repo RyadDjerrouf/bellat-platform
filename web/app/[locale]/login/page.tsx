@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { loginUser, registerUser } from '@/lib/api';
@@ -133,6 +134,14 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? '...' : t.title[mode]}
             </Button>
+
+            {mode === 'login' && (
+              <p className="text-center text-sm mt-2">
+                <Link href={`/${locale}/forgot-password`} className="text-gray-500 hover:text-green-700 underline">
+                  {locale === 'ar' ? 'نسيت كلمة المرور؟' : 'Mot de passe oublié ?'}
+                </Link>
+              </p>
+            )}
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-4">

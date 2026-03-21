@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
+import { Search, CalendarDays } from 'lucide-react';
 import { fetchAdminOrders, adminUpdateOrderStatus, type AdminOrder } from '@/lib/api';
 
 const ADMIN_TOKEN_KEY = 'bellat_admin_token';
@@ -37,25 +38,50 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [advancing, setAdvancing] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadOrders = async (status?: string) => {
+  const loadOrders = useCallback(async (
+    status?: string, q?: string, from?: string, to?: string,
+  ) => {
     const token = localStorage.getItem(ADMIN_TOKEN_KEY);
     if (!token) return;
     setIsLoading(true);
-    const res = await fetchAdminOrders(token, { status: status || undefined });
+    const res = await fetchAdminOrders(token, {
+      status: status || undefined,
+      q: q || undefined,
+      from: from || undefined,
+      to: to || undefined,
+    });
     setOrders(res.data);
     setTotal(res.meta.total);
     setIsLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { loadOrders(); }, []);
+  useEffect(() => { loadOrders(); }, [loadOrders]);
 
   const handleFilterChange = (s: string) => {
     setStatusFilter(s);
-    loadOrders(s);
+    loadOrders(s, searchQuery, dateFrom, dateTo);
   };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => loadOrders(statusFilter, value, dateFrom, dateTo), 350);
+  };
+
+  const handleDateChange = (from: string, to: string) => {
+    setDateFrom(from);
+    setDateTo(to);
+    loadOrders(statusFilter, searchQuery, from, to);
+  };
+
+  const clearDates = () => handleDateChange('', '');
 
   const handleAdvance = async (order: AdminOrder) => {
     const next = NEXT_STATUS[order.status];
@@ -81,6 +107,40 @@ export default function AdminOrdersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Commandes <span className="text-gray-400 text-xl ml-2">{total}</span></h1>
+        {/* Search */}
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="N° commande ou client..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+      </div>
+
+      {/* Date range filter */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <CalendarDays className="h-4 w-4 text-gray-400 shrink-0" />
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => handleDateChange(e.target.value, dateTo)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        <span className="text-gray-400 text-sm">→</span>
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => handleDateChange(dateFrom, e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        {(dateFrom || dateTo) && (
+          <button onClick={clearDates} className="text-xs text-gray-500 hover:text-red-500 transition-colors">
+            Effacer
+          </button>
+        )}
       </div>
 
       {/* Status filter tabs */}

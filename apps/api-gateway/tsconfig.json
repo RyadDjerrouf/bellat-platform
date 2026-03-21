@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "module": "commonjs",
+    "paths": {
+      "@bellat/common": ["../../libs/common/src/index.ts"],
+      "@bellat/types":  ["../../libs/types/src/index.ts"]
+    },
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,

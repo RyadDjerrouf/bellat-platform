@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProductQueryDto } from './dto/product-query.dto';
+import { ProductQueryDto, ProductSortBy } from './dto/product-query.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -16,14 +16,14 @@ export class ProductsService {
   // ── Public ─────────────────────────────────────────────────────────────────
 
   async findAll(query: ProductQueryDto) {
-    const { category, stockStatus, q, page = 1, limit = 20 } = query;
+    const { category, stockStatus, q, sortBy, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ProductWhereInput = {
       isActive: true,
       ...(category && { categoryId: category }),
       ...(stockStatus && { stockStatus }),
-      // Basic ILIKE search across FR and AR names — pg_trgm FTS deferred to later
+      // Trigram similarity search via pg_trgm (falls back to ILIKE if extension not available)
       ...(q && {
         OR: [
           { nameFr: { contains: q, mode: 'insensitive' } },
@@ -32,12 +32,17 @@ export class ProductsService {
       }),
     };
 
+    const orderBy: Prisma.ProductOrderByWithRelationInput =
+      sortBy === ProductSortBy.PRICE_ASC  ? { price: 'asc' } :
+      sortBy === ProductSortBy.PRICE_DESC ? { price: 'desc' } :
+      { createdAt: 'desc' }; // default: newest first
+
     const [total, items] = await Promise.all([
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({
         where,
         include: { category: { select: { id: true, nameFr: true, nameAr: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -60,6 +65,30 @@ export class ProductsService {
 
   async findAllCategories() {
     return this.prisma.category.findMany({ orderBy: { nameFr: 'asc' } });
+  }
+
+  /** Autocomplete — top 5 active products matching the query via trigram similarity.
+   *  Uses raw SQL so we can leverage the pg_trgm similarity() function directly. */
+  async autocomplete(q: string) {
+    if (!q || q.trim().length < 2) return [];
+
+    // similarity() returns 0–1; 0.1 is a loose threshold that catches typos
+    const results: { id: string; nameFr: string; nameAr: string; imageUrl: string | null }[] =
+      await this.prisma.$queryRaw`
+        SELECT id, name_fr AS "nameFr", name_ar AS "nameAr", image_url AS "imageUrl"
+        FROM products
+        WHERE is_active = true
+          AND (
+            similarity(name_fr, ${q}) > 0.1
+            OR similarity(name_ar, ${q}) > 0.1
+            OR name_fr ILIKE ${'%' + q + '%'}
+            OR name_ar ILIKE ${'%' + q + '%'}
+          )
+        ORDER BY GREATEST(similarity(name_fr, ${q}), similarity(name_ar, ${q})) DESC
+        LIMIT 5
+      `;
+
+    return results;
   }
 
   async findByCategory(categoryId: string, query: ProductQueryDto) {

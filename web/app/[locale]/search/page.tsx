@@ -6,20 +6,40 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductCardSkeleton } from '@/components/products/ProductCardSkeleton';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Product } from '@/types/product';
-import { fetchProducts } from '@/lib/api';
+import { fetchProducts, fetchAutocomplete, AutocompleteSuggestion } from '@/lib/api';
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
 
   // Extract locale from pathname
   const pathname = usePathname();
   const locale = pathname.split('/')[1] || 'fr';
 
+  // Autocomplete — fast, 200ms debounce
+  useEffect(() => {
+    if (suggestRef.current) clearTimeout(suggestRef.current);
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    suggestRef.current = setTimeout(async () => {
+      const results = await fetchAutocomplete(searchQuery.trim());
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    }, 200);
+    return () => { if (suggestRef.current) clearTimeout(suggestRef.current); };
+  }, [searchQuery]);
+
+  // Full search — 350ms debounce
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredProducts([]);
@@ -42,6 +62,13 @@ export default function SearchPage() {
 
   const handleClearSearch = () => {
     setSearchQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const handleSuggestionClick = (s: AutocompleteSuggestion) => {
+    setShowSuggestions(false);
+    router.push(`/${locale}/products/${s.id}`);
   };
 
   return (
@@ -52,7 +79,7 @@ export default function SearchPage() {
           {locale === 'ar' ? 'بحث' : 'Recherche'}
         </h1>
 
-        {/* Search Input */}
+        {/* Search Input + Autocomplete dropdown */}
         <div className="relative max-w-lg">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
@@ -60,6 +87,8 @@ export default function SearchPage() {
             placeholder={locale === 'ar' ? 'ابحث عن المنتجات...' : 'Rechercher des produits...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             className="pl-10 pr-12 py-3"
             autoFocus
           />
@@ -72,6 +101,27 @@ export default function SearchPage() {
             >
               <X className="h-5 w-5" />
             </Button>
+          )}
+
+          {/* Autocomplete suggestions dropdown */}
+          {showSuggestions && (
+            <ul className="absolute z-50 top-full mt-1 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+              {suggestions.map((s) => (
+                <li key={s.id}>
+                  <button
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-green-50 transition-colors text-start"
+                    onMouseDown={() => handleSuggestionClick(s)}
+                  >
+                    {s.imageUrl && (
+                      <img src={s.imageUrl} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                    )}
+                    <span className="text-sm font-medium text-gray-800">
+                      {locale === 'ar' ? s.nameAr : s.nameFr}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </header>

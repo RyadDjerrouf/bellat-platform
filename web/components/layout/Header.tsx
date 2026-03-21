@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Search, ShoppingCart, User, LogOut, ChevronDown, Package, MapPin } from 'lucide-react';
+import { Search, ShoppingCart, User, LogOut, ChevronDown, Package, MapPin, Heart, UtensilsCrossed } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useCart } from '@/context/CartContext';
@@ -51,6 +51,23 @@ export function Header() {
             </div>
           </div>
         </Link>
+
+        {/* Desktop nav links */}
+        <div className="hidden md:flex items-center gap-1">
+          <Link
+            href={`/${locale}/products`}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors font-medium"
+          >
+            {ar ? 'المنتجات' : 'Produits'}
+          </Link>
+          <Link
+            href={`/${locale}/recipes`}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors font-medium flex items-center gap-1"
+          >
+            <UtensilsCrossed className="h-3.5 w-3.5" />
+            {ar ? 'الوصفات' : 'Recettes'}
+          </Link>
+        </div>
 
         {/* Navigation Actions */}
         <div className="flex items-center gap-3">
@@ -117,6 +134,14 @@ export function Header() {
                   >
                     <MapPin className="h-4 w-4 text-gray-400" />
                     {ar ? 'عناويني' : 'Mes adresses'}
+                  </Link>
+                  <Link
+                    href={`/${locale}/favorites`}
+                    onClick={() => setAccountOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Heart className="h-4 w-4 text-gray-400" />
+                    {ar ? 'المفضلة' : 'Mes favoris'}
                   </Link>
                   <hr className="my-1 border-gray-100" />
                   <button
