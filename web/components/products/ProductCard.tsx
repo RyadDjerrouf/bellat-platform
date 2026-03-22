@@ -6,8 +6,6 @@ import { Product } from '@/types/product';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StockBadge } from '@/components/products/StockBadge';
-import { ResponsivePicture } from '@/components/ui/ResponsivePicture';
-import { getOptimizedImageSrc } from '@/lib/utils/image';
 
 interface ProductCardProps {
   product: Product;
@@ -22,11 +20,11 @@ export function ProductCard({ product, locale }: ProductCardProps) {
     <Card className="h-full overflow-hidden transition-transform hover:scale-105 hover:shadow-xl">
       <Link href={`/${locale}/products/${product.id}`} className="block">
         <div className="relative w-full aspect-square">
-          <ResponsivePicture
-            src={getOptimizedImageSrc(product.image, 'full', 'webp')}
+          <Image
+            src={product.image || '/images/placeholder.jpg'}
             alt={locale === 'ar' ? product.name_ar : product.name_fr}
-            className="w-full h-full"
-            priority={false}
+            fill
+            className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
           {product.stock_status !== 'in_stock' && (

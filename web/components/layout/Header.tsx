@@ -15,8 +15,11 @@ export function Header() {
   const { itemCount } = useCart();
   const { isAuthenticated, logout } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const ar = locale === 'ar';
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -91,7 +94,7 @@ export function Header() {
             >
               <ShoppingCart className="h-5 w-5 text-gray-700" />
             </Button>
-            {itemCount > 0 && (
+            {mounted && itemCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-red-600 text-xs font-bold text-white shadow-lg animate-pulse ring-2 ring-white">
                 {itemCount > 99 ? '99+' : itemCount}
               </span>
