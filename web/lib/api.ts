@@ -701,3 +701,50 @@ export async function uploadProductImage(token: string, file: File): Promise<str
   if (!res.ok) throw new Error(json.message ?? 'Upload failed');
   return json.url as string;
 }
+
+// ── Delivery Zones ────────────────────────────────────────────────────────────
+
+export interface DeliveryZone {
+  id: number;
+  wilaya: string;
+  deliveryFee: number;
+  isActive: boolean;
+}
+
+export async function fetchDeliveryZones(): Promise<DeliveryZone[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/delivery/zones`, { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAdminDeliveryZones(token: string): Promise<DeliveryZone[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/delivery/zones`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function updateDeliveryZone(
+  token: string,
+  id: number,
+  deliveryFee: number,
+  isActive: boolean,
+): Promise<DeliveryZone> {
+  const res = await fetch(`${API_BASE}/api/admin/delivery/zones/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deliveryFee, isActive }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Erreur mise à jour zone');
+  return json;
+}

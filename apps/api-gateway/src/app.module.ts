@@ -15,6 +15,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { SettingsModule } from './settings/settings.module';
 import { UploadModule } from './upload/upload.module';
+import { DeliveryModule } from './delivery/delivery.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { UploadModule } from './upload/upload.module';
     FavoritesModule,
     SettingsModule,
     UploadModule,
+    DeliveryModule,
   ],
   controllers: [AppController],
   providers: [

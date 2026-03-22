@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
 import { useCheckout } from '@/context/CheckoutContext';
 import { useAuth } from '@/context/AuthContext';
-import { placeOrder } from '@/lib/api';
+import { placeOrder, fetchDeliveryZones } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 
@@ -18,6 +18,7 @@ export default function ReviewPage() {
   const { address, slot, setAddress, setSlot } = useCheckout();
   const { token, isAuthenticated } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
   // Redirect if checkout steps weren't completed
   useEffect(() => {
@@ -26,12 +27,21 @@ export default function ReviewPage() {
     }
   }, [address, slot, router, locale]);
 
+  // Fetch delivery fee for the selected wilaya
+  useEffect(() => {
+    if (!address?.wilaya) return;
+    fetchDeliveryZones().then((zones) => {
+      const zone = zones.find((z) => z.wilaya === address.wilaya);
+      setDeliveryFee(zone ? zone.deliveryFee : 0);
+    });
+  }, [address?.wilaya]);
+
   if (!address || !slot) {
     return <div className="text-center py-12">Chargement...</div>;
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal; // Free delivery (B2B)
+  const total = subtotal + deliveryFee;
 
   const handleConfirmOrder = async () => {
     if (!isAuthenticated || !token) {
@@ -148,8 +158,10 @@ export default function ReviewPage() {
             </div>
             <div className="flex justify-between text-sm">
               <span>{locale === 'ar' ? 'التوصيل' : 'Livraison'}</span>
-              <span className="text-green-600 font-medium">
-                {locale === 'ar' ? 'مجاني' : 'Gratuite'}
+              <span className={deliveryFee === 0 ? 'text-green-600 font-medium' : ''}>
+                {deliveryFee === 0
+                  ? (locale === 'ar' ? 'مجاني' : 'Gratuite')
+                  : `${deliveryFee} DZD`}
               </span>
             </div>
             <div className="flex justify-between font-bold text-lg">

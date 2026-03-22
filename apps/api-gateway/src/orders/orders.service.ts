@@ -9,11 +9,9 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { OrdersGateway } from './orders.gateway';
+import { DeliveryService } from '../delivery/delivery.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto } from './dto/order-query.dto';
-
-// Bellat is primarily B2B — delivery is free for all zones.
-const DELIVERY_FEE = 0;
 
 // Valid order status transitions — prevents skipping states
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -31,6 +29,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private readonly gateway: OrdersGateway,
+    private readonly delivery: DeliveryService,
   ) {}
 
   // ── Checkout ───────────────────────────────────────────────────────────────
@@ -65,7 +64,11 @@ export class OrdersService {
       return sum + price * item.quantity;
     }, 0);
 
-    const deliveryFee = DELIVERY_FEE;
+    // Look up delivery fee for the customer's wilaya — falls back to 0 if zone not configured
+    const wilaya = (dto.deliveryAddress as { wilaya?: string })?.wilaya ?? '';
+    const zones = await this.delivery.findAll();
+    const zone = zones.find((z) => z.wilaya === wilaya);
+    const deliveryFee = zone ? Number(zone.deliveryFee) : 0;
 
     const total = subtotal + deliveryFee;
 

@@ -205,6 +205,24 @@ model Setting {
 }
 
 // ─────────────────────────────────────────────
+// DeliveryZone
+// Per-wilaya delivery configuration — one row per wilaya (1–48)
+// ─────────────────────────────────────────────
+
+model DeliveryZone {
+  id          Int      @id @default(autoincrement())
+  // Algerian wilaya name, e.g. "Alger", "Oran", "Constantine"
+  wilaya      String   @unique @db.VarChar(100)
+  // Delivery fee in DZD (0 = free)
+  deliveryFee Decimal  @default(0) @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("delivery_zones")
+}
+
+// ─────────────────────────────────────────────
 // OrderItem
 // ─────────────────────────────────────────────
 
