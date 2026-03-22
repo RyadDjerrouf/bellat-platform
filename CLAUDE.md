@@ -57,10 +57,11 @@ docker-compose logs -f postgres # View postgres logs
 **Current State (March 2026):**
 - Full-stack app is live end-to-end. Frontend talks to real NestJS backend.
 - Database: **Supabase** (PostgreSQL 15) — `libs/database/.env` and `apps/api-gateway/.env` both point to it.
-- All customer pages wired to real API: auth, products, cart, checkout, orders, profile, addresses, favorites, recipes (static).
-- Admin dashboard fully wired: login (real JWT), orders (list + detail + status advance + search + date range filter), products (list + create + edit + deactivate + search), inventory (search), customers (search), analytics (date range presets).
+- All customer pages wired to real API: auth, products, cart, checkout (with real per-wilaya delivery fee), orders, profile, addresses, favorites, recipes (static), search + autocomplete (pg_trgm).
+- Admin dashboard fully wired: login, orders, products (with image upload via MinIO), inventory, customers, analytics, delivery zones.
 - PWA: service worker (`/public/sw.js` v2), manifest, icons (`/public/icons/`), offline fallback page (`/offline`).
-- Email: `MailService` sends password-reset links via SendGrid v3 REST API (native `https`, no extra npm package). Falls back to console log when `SENDGRID_API_KEY=REPLACE_ME`.
+- Email: `MailService` sends welcome, order confirmation, and password-reset emails via SendGrid v3 REST API (native `https`, no extra npm package). Falls back to console log when `SENDGRID_API_KEY=REPLACE_ME`.
+- Image upload: MinIO running locally (`localhost:9000`), bucket `bellat-products` (public read). `POST /api/admin/upload/image` stores product images. Start MinIO with `docker-compose up -d minio`.
 
 ---
 
@@ -92,10 +93,11 @@ web/
 │   │   ├── login/             # Admin login (checks role=admin in JWT)
 │   │   ├── dashboard/         # KPI cards + recent orders + revenue chart + top products
 │   │   ├── orders/            # Order list + [id] detail (search + status + date range filter)
-│   │   ├── products/          # Product list (search) + new/ + [id]/edit/
+│   │   ├── products/          # Product list (search) + new/ + [id]/edit/ (file upload picker)
 │   │   ├── inventory/         # Stock management (search)
 │   │   ├── customers/         # Customer list (searchable)
 │   │   ├── analytics/         # Revenue chart, top products, status breakdown (7/30/90d presets)
+│   │   ├── delivery/          # Delivery zones — per-wilaya fee config (all 48 wilayas)
 │   │   └── layout.tsx         # Sidebar nav, auth guard
 │   ├── offline/               # Offline fallback page (served by SW when navigation fails)
 │   ├── page.tsx               # Root redirect → /fr
@@ -145,13 +147,16 @@ web/
 ```
 src/
 ├── auth/          # POST /api/auth/register, /login, /refresh, /forgot-password, /reset-password
-├── products/      # GET /api/products, /categories; POST/PUT/DELETE /api/admin/products
+├── products/      # GET /api/products, /autocomplete, /categories; POST/PUT/DELETE /api/admin/products
 ├── orders/        # GET/POST /api/orders; PATCH /cancel, /reorder; GET/PATCH /api/admin/orders
 ├── inventory/     # GET/PATCH /api/admin/inventory; batch; alerts
 ├── users/         # GET/PATCH /api/users/me; DELETE /api/users/me; CRUD /api/users/me/addresses; GET /api/admin/users
 ├── favorites/     # GET/POST/DELETE /api/favorites/:productId (JWT auth, customer)
 ├── analytics/     # GET /api/admin/analytics?from=&to=
+├── delivery/      # GET /api/delivery/zones (public); GET/PATCH /api/admin/delivery/zones (admin)
+├── upload/        # POST /api/admin/upload/image (admin, Multer → MinIO, 5MB, JPEG/PNG/WebP)
 ├── mail/          # MailService — SendGrid v3 via native https (no extra package)
+├── settings/      # GET /api/admin/settings; PATCH /api/admin/settings/:key
 ├── prisma/        # PrismaService (NestJS DI wrapper around PrismaClient)
 └── common/        # RolesGuard, @Roles() decorator, LoggerMiddleware
 ```
@@ -168,7 +173,7 @@ src/
 **Order state machine**: `pending → confirmed → preparing → out_for_delivery → delivered`
 Invalid transitions return 400. Cancellation only allowed from `pending`.
 
-**Delivery fee**: currently `DELIVERY_FEE = 0` for all wilayas (free delivery, B2B model). Per-zone fee config is deferred to Phase 1.9.
+**Delivery fee**: looked up from `delivery_zones` table by wilaya name at order creation. All 48 wilayas seeded with 0 DZD (free). Admins configure per-wilaya fees at `/admin/delivery`. Falls back to 0 if zone not found.
 
 **Order ID format**: `BLT-YYYYMMDD-NNNNN` (e.g. `BLT-20260321-00001`)
 
@@ -184,9 +189,10 @@ The api-gateway has its own `src/prisma/prisma.service.ts` (NestJS DI wrapper) b
 - `DATABASE_URL` — pooled via pgBouncer (port 6543) — used at runtime
 - `DIRECT_URL` — direct connection (port 5432) — used by `prisma migrate` only
 
-**Models**: Category, Product, User, Address, Order, OrderItem, Favorite
+**Models**: Category, Product, User, Address, Order, OrderItem, Favorite, Setting, DeliveryZone
 **Enums**: `UserRole` (customer, admin), `StockStatus` (in_stock, low_stock, out_of_stock), `OrderStatus`
-**Latest migration**: `20260321_add_favorites` — adds `favorites` table (`userId` + `productId` unique constraint, cascade delete)
+**Latest migration**: `20260322000000_add_delivery_zones` — adds `delivery_zones` table; seeds all 48 Algerian wilayas with 0 DZD fee
+**pg_trgm**: enabled via migration `20260321220000_add_pg_trgm`; GIN indexes on `"nameFr"` and `"nameAr"` in products. Raw SQL must use quoted camelCase column names (no `@map` on fields — actual columns are `"nameFr"`, `"nameAr"`, `"isActive"`, `"imageUrl"`, etc.).
 
 ---
 
@@ -239,8 +245,9 @@ Bellat (CVA — Conserverie de Viandes d'Algérie) — B2C retail and B2B wholes
   - `localhost:3002` — API gateway (NestJS)
   - Supabase dashboard — production DB
 - **Admin credentials**: `admin@bellat.net` / `demo123` — hits real backend; JWT role=admin required. **Not seeded automatically** — must be created manually via Prisma: `bcrypt.hash('demo123', 12)` → `prisma.user.create({ data: { email: 'admin@bellat.net', passwordHash: hash, fullName: 'Admin Bellat', role: 'admin' } })`
-- **Check `/TODO.md`** for full roadmap — Phase 1 (35/35 ✅), Phase 2 (32/32 ✅), Phase 3 (~20/22), Phase 4 (~1/12 — SMS/push blocked), Phase 5 (~8/16 — Playwright E2E + Lighthouse done)
+- **Check `/TODO.md`** for full roadmap — Phase 1 ✅, Phase 2 ✅, Phase 3 ✅ (22/22), Phase 4 (~4/12 — SMS/FCM push blocked), Phase 5 (~10/16 — Playwright E2E + Lighthouse done)
 - **New env vars** (api-gateway): `SENDGRID_API_KEY`, `MAIL_FROM`, `APP_URL` — added to `apps/api-gateway/.env`
+- **MinIO env vars** (api-gateway, optional): `MINIO_ENDPOINT` (default: localhost), `MINIO_PORT` (default: 9000), `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` (defaults: minioadmin/minioadmin)
 
 ## Out of Scope
 

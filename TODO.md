@@ -1,7 +1,7 @@
 # 📋 Bellat Digital Ordering Platform - Development Roadmap
 
-**Status:** 🟡 Phase 1 ✅ complete; Phase 2 ✅ complete; Phase 3 mostly done | **Next:** Cart hydration fix, search image fix, delivery zones, SMS/push, B2B features
-**Last Updated:** March 21, 2026
+**Status:** 🟢 Phase 1 ✅ Phase 2 ✅ Phase 3 ✅ complete | **Next:** Recipe CRUD, push notifications, QA (unit tests, load tests, Arabic QA)
+**Last Updated:** March 22, 2026
 **Target Launch:** Q2 2026
 
 ---
@@ -17,9 +17,10 @@
 - [x] **Inventory pagination `NaN`** — `page`/`limit` query params arrived as strings; `skip` and `take` became `NaN`; fixed with `Number() || fallback` in `inventory.service.ts`
 - [x] **`Common.Currency` i18n key missing** — cart showed `"450 Common.Currency / 500g"`; added `"Currency": "DZD"` to `fr.json` and `"Currency": "د.ج"` to `ar.json`
 
-### Postponed (known, not blocking)
-- [ ] **Cart badge hydration mismatch** — SSR renders no badge; client reads localStorage → React warning logged. Fix: initialize cart count as `null`, render badge only after mount. Low priority (cosmetic, non-blocking).
-- [ ] **Broken product images in search results** — search result cards show broken `<img>` for product images. Likely missing Next.js `<Image>` wrapper or wrong path. Low priority.
+### Fixed (March 22, 2026)
+- [x] **Cart badge hydration mismatch** — Added `mounted` state guard in `Header.tsx`; badge renders only client-side.
+- [x] **Broken product images in search/listings** — `ProductCard` replaced `ResponsivePicture` + `getOptimizedImageSrc` (generated non-existent `.webp` sources) with Next.js `<Image fill>`.
+- [x] **Autocomplete 500 error** — Raw SQL in `products.service.ts` used snake_case column names (`name_fr`, `is_active`) but actual DB columns are camelCase (`"nameFr"`, `"isActive"`); fixed quoted identifiers.
 
 ---
 
@@ -30,9 +31,9 @@
 | Phase 0: Foundation | ✅ Done | Core done | Monorepo + Docker + frontend prototype migrated |
 | Phase 1: Backend | ✅ Done | 35/35 tasks | Shared libs, pg_trgm autocomplete, cron stock alerts, CSV import all done. Delivery zones + SMS/push + B2B deferred to Phase 4+ |
 | Phase 2: Frontend | ✅ Done | 32/32 tasks | IndexedDB offline cache (Dexie.js) + background sync done. Modal/Drawer components done. Lighthouse scores: Performance 94, SEO 92 |
-| Phase 3: Admin | 🟡 In Progress | ~20/22 tasks | CSV inventory import UI done; delivery zones + reporting pages deferred |
-| Phase 4: Integrations | 🟡 Partial | ~1/12 tasks | SendGrid email service wired (password reset); SMS + push still blocked |
-| Phase 5: QA & Launch | 🟡 In Progress | ~10/16 tasks | Playwright E2E + Lighthouse done; 7 bugs found and fixed in live test session (March 21) |
+| Phase 3: Admin | ✅ Done | 22/22 tasks | Delivery zones (backend + admin UI + checkout integration) done March 22 |
+| Phase 4: Integrations | 🟡 Partial | ~4/12 tasks | Image upload (MinIO), welcome/order confirmation/password reset emails, real-time WS done; SMS + FCM push still blocked |
+| Phase 5: QA & Launch | 🟡 In Progress | ~10/16 tasks | Playwright E2E + Lighthouse done; 10 bugs found and fixed across two sessions (March 21–22) |
 
 **Phase 2 detail:** All customer-facing pages complete and wired to real backend. PWA: service worker, manifest, icons, offline fallback page all done. Favorites: add/remove from product detail, full favorites page. Recipes: 6 bilingual recipes with "add all to cart". IndexedDB product cache + background sync done (Dexie.js, `useProductCache`, `useOfflineSync` hooks).
 
@@ -262,12 +263,12 @@
   - [x] GET `/api/categories/:id/products` (products by category, paginated)
   - **Note:** Brands not in current schema (deferred — not a Bellat requirement for Phase 1)
 
-- [~] **Full-Text Search** `[Backend]` `[L]` 🟡 Partial
+- [x] **Full-Text Search** `[Backend]` `[L]` ✅ Done
   - [x] GET `/api/products?q=<query>` — ILIKE search on nameFr + nameAr
-  - [ ] PostgreSQL FTS with pg_trgm (fuzzy matching / typo tolerance)
-  - [ ] Arabic transliteration support
-  - [ ] Autocomplete endpoint
-  - **Note:** Basic ILIKE search is live; pg_trgm upgrade deferred to Phase 1 polish
+  - [x] PostgreSQL pg_trgm extension enabled; GIN indexes on `"nameFr"` and `"nameAr"` (migration `20260321220000_add_pg_trgm`)
+  - [x] GET `/api/products/autocomplete?q=` — similarity() + ILIKE fallback, top 5 results, 200ms debounce in frontend
+  - [ ] Arabic transliteration support — deferred
+  - **Note:** Fixed March 22 — raw SQL had snake_case column names; corrected to quoted camelCase
 
 - [ ] **Variant Management** `[Backend]` `[M]`
   - [ ] Support multiple variants per product (weight, pack size)
@@ -753,20 +754,14 @@
 
 ### 3.6 Delivery Management
 
-- [ ] **Delivery Zones Page** `[Frontend]` `[M]`
-  - [ ] List of all zones
-  - [ ] Add zone button
-  - [ ] Edit zone button
-  - [ ] Zone form:
-    - [ ] Wilaya selector
-    - [ ] Communes multi-select
-    - [ ] Delivery fee input
-    - [ ] Slot availability toggles
-    - [ ] Evening surcharge input
-    - [ ] Max orders per slot
-    - [ ] Min order amount
-  - **Acceptance:** Zones configurable
-  - **Requirements:** FR-ADM-005.1
+- [x] **Delivery Zones** `[Backend + Frontend]` `[M]` ✅ Done (March 22)
+  - [x] `DeliveryZone` model in Prisma; migration seeds all 48 Algerian wilayas with 0 DZD fee
+  - [x] GET `/api/delivery/zones` (public — used by checkout) + GET/PATCH `/api/admin/delivery/zones` (admin)
+  - [x] `/admin/delivery` page — table of all 48 wilayas, inline fee input + active toggle, save on dirty rows only
+  - [x] "Zones livraison" nav item added to admin sidebar (Truck icon)
+  - [x] Checkout review page fetches real zone fee for selected wilaya; shows amount or "Gratuite" if 0
+  - [x] Orders service looks up zone fee at order creation (replaces hardcoded `DELIVERY_FEE = 0`)
+  - **Note:** Communes multi-select, slot toggles, evening surcharge, min order deferred (simple per-wilaya fee sufficient for launch)
 
 - [ ] **Driver Assignment Page** `[Frontend]` `[M]`
   - [ ] List of unassigned orders (by zone)
@@ -911,13 +906,14 @@
 
 ### 4.5 File Upload
 
-- [ ] **Image Upload Service** `[Backend]` `[M]`
-  - [ ] POST `/upload/image` (product images)
-  - [ ] Integrate with MinIO/S3
-  - [ ] Image optimization (compress, resize)
-  - [ ] Generate thumbnails
-  - [ ] Return public URL
-  - **Acceptance:** Images uploadable, URLs accessible
+- [x] **Image Upload Service** `[Backend]` `[M]` ✅ Done (March 22)
+  - [x] POST `/api/admin/upload/image` — admin-only, Multer memory storage, 5 MB limit, JPEG/PNG/WebP
+  - [x] MinIO integration (`minio` npm package); bucket `bellat-products` auto-created with public read policy
+  - [x] Returns `{ url }` pointing to MinIO public endpoint
+  - [x] Admin `ProductForm` updated: file picker + image preview replaces plain URL input; URL fallback kept
+  - [x] `next.config.ts` `remotePatterns` allows `localhost:9000` for Next.js `<Image>`
+  - [ ] Image optimization / thumbnail generation — deferred
+  - **Acceptance:** ✅ Images uploadable via admin product form; served from MinIO
   - **Requirements:** FR-ADM-002
 
 - [ ] **Document Upload** `[Backend]` `[S]`
