@@ -67,7 +67,7 @@ export async function cacheProducts(products: CachedProduct[]): Promise<void> {
 
 export async function getCachedProducts(categoryId?: string): Promise<CachedProduct[]> {
   const cutoff = Date.now() - CACHE_TTL_MS;
-  let query = db.products.where('cachedAt').above(cutoff);
+  const query = db.products.where('cachedAt').above(cutoff);
   const results = await query.toArray();
   if (categoryId) return results.filter((p) => p.categoryId === categoryId);
   return results;

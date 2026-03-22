@@ -44,7 +44,8 @@ export default function AdminAnalyticsPage() {
     });
   };
 
-  useEffect(() => { load('30d'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { load('30d'); }, []);
 
   const handlePresetChange = (p: Preset) => {
     setPreset(p);
@@ -99,7 +100,7 @@ export default function AdminAnalyticsPage() {
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-green-50 rounded-lg"><DollarSign className="h-5 w-5 text-green-600" /></div>
             <div>
-              <p className="text-xs text-gray-500">Chiffre d'affaires</p>
+              <p className="text-xs text-gray-500">Chiffre d&apos;affaires</p>
               <p className="text-xl font-bold">{data.totalRevenue.toLocaleString('fr-DZ')} DZD</p>
             </div>
           </CardContent>
@@ -176,7 +177,7 @@ export default function AdminAnalyticsPage() {
 
       {/* Top products */}
       <Card>
-        <CardHeader><CardTitle className="text-sm text-gray-600">Top 5 produits par chiffre d'affaires</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm text-gray-600">Top 5 produits par chiffre d&apos;affaires</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {data.topProducts.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">Aucune donnée</p>

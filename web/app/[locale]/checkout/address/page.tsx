@@ -30,6 +30,14 @@ export default function AddressPage() {
   const [wilaya, setWilaya] = useState(address?.wilaya || '');
   const [commune, setCommune] = useState(address?.commune || '');
 
+  const applyAddress = (addr: Address) => {
+    setFullName(addr.fullName);
+    setPhone(addr.phoneNumber);
+    setAddressLine(addr.addressLine1);
+    setWilaya(addr.wilaya);
+    setCommune(addr.commune);
+  };
+
   // Load saved addresses for authenticated users
   useEffect(() => {
     if (!isAuthenticated || !token) return;
@@ -42,15 +50,8 @@ export default function AddressPage() {
         setSelectedSavedId(def.id);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, token]);
-
-  const applyAddress = (addr: Address) => {
-    setFullName(addr.fullName);
-    setPhone(addr.phoneNumber);
-    setAddressLine(addr.addressLine1);
-    setWilaya(addr.wilaya);
-    setCommune(addr.commune);
-  };
 
   const handleSelectSaved = (addr: Address) => {
     setSelectedSavedId(addr.id);

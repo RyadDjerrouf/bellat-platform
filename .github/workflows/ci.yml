@@ -19,10 +19,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: apps/api-gateway/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install backend dependencies
-        working-directory: apps/api-gateway
         run: npm ci
 
       - name: Lint backend

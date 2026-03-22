@@ -19,6 +19,7 @@ export function useOrderUpdates(
 ) {
   // Stable ref so the effect doesn't re-run when the callback identity changes
   const callbackRef = useRef(onStatusUpdate);
+  // eslint-disable-next-line react-hooks/refs
   callbackRef.current = onStatusUpdate;
 
   useEffect(() => {

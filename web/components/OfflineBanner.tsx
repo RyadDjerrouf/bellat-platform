@@ -10,7 +10,8 @@ export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    // Set initial state
+    // Set initial state — eslint rule doesn't apply here (syncing to navigator.onLine)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOffline(!navigator.onLine);
 
     const goOffline = () => setIsOffline(true);

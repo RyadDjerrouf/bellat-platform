@@ -19,6 +19,7 @@ export function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const ar = locale === 'ar';
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
   // Close dropdown when clicking outside

@@ -24,6 +24,7 @@ export default function AdminCustomersPage() {
     setIsLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, []);
 
   const handleSearch = (value: string) => {
