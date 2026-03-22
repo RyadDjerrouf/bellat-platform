@@ -68,23 +68,24 @@ export class ProductsService {
   }
 
   /** Autocomplete — top 5 active products matching the query via trigram similarity.
-   *  Uses raw SQL so we can leverage the pg_trgm similarity() function directly. */
+   *  Uses raw SQL so we can leverage the pg_trgm similarity() function directly.
+   *  Column names are camelCase (no @map overrides in Prisma schema). */
   async autocomplete(q: string) {
     if (!q || q.trim().length < 2) return [];
 
     // similarity() returns 0–1; 0.1 is a loose threshold that catches typos
     const results: { id: string; nameFr: string; nameAr: string; imageUrl: string | null }[] =
       await this.prisma.$queryRaw`
-        SELECT id, name_fr AS "nameFr", name_ar AS "nameAr", image_url AS "imageUrl"
+        SELECT id, "nameFr", "nameAr", "imageUrl"
         FROM products
-        WHERE is_active = true
+        WHERE "isActive" = true
           AND (
-            similarity(name_fr, ${q}) > 0.1
-            OR similarity(name_ar, ${q}) > 0.1
-            OR name_fr ILIKE ${'%' + q + '%'}
-            OR name_ar ILIKE ${'%' + q + '%'}
+            similarity("nameFr", ${q}) > 0.1
+            OR similarity("nameAr", ${q}) > 0.1
+            OR "nameFr" ILIKE ${'%' + q + '%'}
+            OR "nameAr" ILIKE ${'%' + q + '%'}
           )
-        ORDER BY GREATEST(similarity(name_fr, ${q}), similarity(name_ar, ${q})) DESC
+        ORDER BY GREATEST(similarity("nameFr", ${q}), similarity("nameAr", ${q})) DESC
         LIMIT 5
       `;
 
