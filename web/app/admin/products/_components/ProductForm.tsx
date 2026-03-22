@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent, ChangeEvent } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft } from 'lucide-react';
-import { fetchCategories, adminCreateProduct, adminUpdateProduct, type AdminProductPayload } from '@/lib/api';
+import { ArrowLeft, Upload, X } from 'lucide-react';
+import { fetchCategories, adminCreateProduct, adminUpdateProduct, uploadProductImage, type AdminProductPayload } from '@/lib/api';
 import type { Category } from '@/types/category';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,7 @@ interface ProductFormProps {
 export function ProductForm({ productId, initial }: ProductFormProps) {
   const router = useRouter();
   const isEdit = !!productId;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
   const [id, setId]                     = useState(productId ?? '');
@@ -43,10 +45,30 @@ export function ProductForm({ productId, initial }: ProductFormProps) {
 
   const [categories, setCategories]     = useState<Category[]>([]);
   const [submitting, setSubmitting]     = useState(false);
+  const [uploading, setUploading]       = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories);
   }, []);
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!token) return;
+    setUploading(true);
+    try {
+      const url = await uploadProductImage(token, file);
+      setImageUrl(url);
+      toast.success('Image uploadée');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Échec upload');
+    } finally {
+      setUploading(false);
+      // Reset input so the same file can be re-selected if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -197,20 +219,66 @@ export function ProductForm({ productId, initial }: ProductFormProps) {
                 </select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="imageUrl">URL image</Label>
-              <Input
-                id="imageUrl"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="/images/products/kachir.jpg"
-              />
+
+            {/* Image upload */}
+            <div className="space-y-2">
+              <Label>Image produit</Label>
+              <div className="flex gap-3 items-start">
+                {/* Preview */}
+                {imageUrl && (
+                  <div className="relative w-20 h-20 rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                    <Image
+                      src={imageUrl}
+                      alt="Aperçu"
+                      fill
+                      className="object-cover"
+                      unoptimized={imageUrl.startsWith('http://localhost')}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 text-white hover:bg-black/70"
+                      aria-label="Supprimer l'image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  {/* File picker */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full flex items-center gap-2 justify-center"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {uploading ? 'Upload en cours…' : 'Choisir un fichier'}
+                  </Button>
+                  {/* Manual URL fallback */}
+                  <Input
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="ou coller une URL…"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">JPEG, PNG ou WebP · max 5 Mo</p>
             </div>
           </CardContent>
         </Card>
 
         <CardFooter className="px-0 pb-0">
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button type="submit" disabled={submitting || uploading} className="w-full">
             {submitting ? '...' : isEdit ? 'Enregistrer les modifications' : 'Créer le produit'}
           </Button>
         </CardFooter>

@@ -688,3 +688,16 @@ export async function registerUser(
   }
   return json;
 }
+
+export async function uploadProductImage(token: string, file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_BASE}/api/admin/upload/image`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Upload failed');
+  return json.url as string;
+}

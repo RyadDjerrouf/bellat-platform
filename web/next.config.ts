@@ -41,6 +41,10 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      // Local MinIO — product images uploaded via admin dashboard
+      { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/bellat-products/**' },
+    ],
   }
 };
 
