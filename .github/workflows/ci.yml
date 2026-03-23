@@ -24,6 +24,9 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=libs/database/prisma/schema.prisma
+
       - name: Lint backend
         working-directory: apps/api-gateway
         run: npm run lint
