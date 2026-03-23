@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'sonner';
-import { Search, CalendarDays } from 'lucide-react';
-import { fetchAdminOrders, adminUpdateOrderStatus, type AdminOrder } from '@/lib/api';
+import { Search, CalendarDays, Download } from 'lucide-react';
+import { fetchAdminOrders, adminUpdateOrderStatus, exportAdminOrdersCsv, type AdminOrder } from '@/lib/api';
 
 const ADMIN_TOKEN_KEY = 'bellat_admin_token';
 
@@ -43,6 +43,7 @@ export default function AdminOrdersPage() {
   const [dateTo, setDateTo] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [advancing, setAdvancing] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadOrders = useCallback(async (
@@ -100,6 +101,24 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const handleExport = async () => {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!token) return;
+    setExporting(true);
+    try {
+      await exportAdminOrdersCsv(token, {
+        status: statusFilter || undefined,
+        q: searchQuery || undefined,
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export échoué');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const formatDate = (iso: string) =>
     new Intl.DateTimeFormat('fr-DZ', { day: 'numeric', month: 'short' }).format(new Date(iso));
 
@@ -107,16 +126,27 @@ export default function AdminOrdersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Commandes <span className="text-gray-400 text-xl ml-2">{total}</span></h1>
-        {/* Search */}
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="N° commande ou client..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="N° commande ou client..."
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          {/* CSV Export */}
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            {exporting ? 'Export...' : 'Exporter CSV'}
+          </button>
         </div>
       </div>
 

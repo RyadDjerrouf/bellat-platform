@@ -335,6 +335,29 @@ export async function fetchAdminOrders(
   return res.json();
 }
 
+/** Download all orders matching the current filters as a CSV file. */
+export async function exportAdminOrdersCsv(
+  token: string,
+  params?: { status?: string; q?: string; from?: string; to?: string },
+): Promise<void> {
+  const url = new URL(`${API_BASE}/api/admin/orders/export`);
+  if (params?.status) url.searchParams.set('status', params.status);
+  if (params?.q) url.searchParams.set('q', params.q);
+  if (params?.from) url.searchParams.set('from', params.from);
+  if (params?.to) url.searchParams.set('to', params.to);
+
+  const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error('Export échoué');
+
+  const blob = await res.blob();
+  const date = new Date().toISOString().slice(0, 10);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bellat-commandes-${date}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 export async function fetchAdminOrder(token: string, orderId: string): Promise<AdminOrder | null> {
   const res = await authFetch(`${API_BASE}/api/admin/orders/${orderId}`, { cache: 'no-store' }, token);
   if (!res.ok) return null;
@@ -700,6 +723,122 @@ export async function uploadProductImage(token: string, file: File): Promise<str
   const json = await res.json();
   if (!res.ok) throw new Error(json.message ?? 'Upload failed');
   return json.url as string;
+}
+
+// ── Recipes ───────────────────────────────────────────────────────────────────
+
+export interface RecipeIngredientApi {
+  id: string;
+  recipeId: string;
+  productId: string | null;
+  nameFr: string;
+  nameAr: string;
+  quantity: string;
+  unit: string;
+  sortOrder: number;
+}
+
+export interface RecipeApi {
+  id: string;
+  nameFr: string;
+  nameAr: string;
+  descriptionFr: string | null;
+  descriptionAr: string | null;
+  category: string;
+  imageUrl: string | null;
+  prepTime: number;
+  cookTime: number;
+  servings: number;
+  difficulty: string;
+  stepsFr: string[];
+  stepsAr: string[];
+  isActive: boolean;
+  ingredients: RecipeIngredientApi[];
+}
+
+export async function fetchRecipes(category?: string): Promise<RecipeApi[]> {
+  try {
+    const url = new URL(`${API_BASE}/api/recipes`);
+    if (category) url.searchParams.set('category', category);
+    const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchRecipeById(id: string): Promise<RecipeApi | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/recipes/${id}`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export interface AdminRecipePayload {
+  id?: string;
+  nameFr: string;
+  nameAr: string;
+  descriptionFr?: string;
+  descriptionAr?: string;
+  category: string;
+  imageUrl?: string;
+  prepTime?: number;
+  cookTime?: number;
+  servings?: number;
+  difficulty: string;
+  stepsFr?: string[];
+  stepsAr?: string[];
+  isActive?: boolean;
+  ingredients?: {
+    productId?: string;
+    nameFr: string;
+    nameAr: string;
+    quantity: string;
+    unit: string;
+    sortOrder?: number;
+  }[];
+}
+
+export async function adminCreateRecipe(token: string, data: AdminRecipePayload & { id: string }): Promise<RecipeApi> {
+  const res = await authFetch(`${API_BASE}/api/admin/recipes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }, token);
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = Array.isArray(json.message) ? json.message.join(', ') : (json.message ?? 'Erreur création recette');
+    throw new Error(msg);
+  }
+  return json;
+}
+
+export async function adminUpdateRecipe(token: string, id: string, data: Partial<AdminRecipePayload>): Promise<RecipeApi> {
+  const res = await authFetch(`${API_BASE}/api/admin/recipes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }, token);
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = Array.isArray(json.message) ? json.message.join(', ') : (json.message ?? 'Erreur mise à jour recette');
+    throw new Error(msg);
+  }
+  return json;
+}
+
+export async function adminDeleteRecipe(token: string, id: string): Promise<void> {
+  await authFetch(`${API_BASE}/api/admin/recipes/${id}`, { method: 'DELETE' }, token);
+}
+
+export async function fetchAdminRecipes(token: string): Promise<RecipeApi[]> {
+  const res = await authFetch(`${API_BASE}/api/admin/recipes`, { cache: 'no-store' }, token);
+  if (!res.ok) return [];
+  return res.json();
 }
 
 // ── Delivery Zones ────────────────────────────────────────────────────────────

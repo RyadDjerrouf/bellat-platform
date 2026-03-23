@@ -248,6 +248,76 @@ export class OrdersService {
     return { data: items, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
+  /**
+   * Export all orders matching the current filters as a UTF-8 CSV string.
+   * No pagination — returns every matching row for download.
+   * Columns: ID, Date, Client, Email, Téléphone, Wilaya, Commune, Sous-total, Livraison, Total, Statut, Paiement, Articles
+   */
+  async exportCsv(query: OrderQueryDto): Promise<string> {
+    const { status, q, from, to } = query;
+
+    const rangeFrom = from ? new Date(from) : undefined;
+    const rangeTo = to ? (() => { const d = new Date(to); d.setHours(23, 59, 59, 999); return d; })() : undefined;
+
+    const where: Prisma.OrderWhereInput = {
+      ...(status && { status }),
+      ...((rangeFrom || rangeTo) && {
+        createdAt: {
+          ...(rangeFrom && { gte: rangeFrom }),
+          ...(rangeTo && { lte: rangeTo }),
+        },
+      }),
+      ...(q && {
+        OR: [
+          { id: { contains: q, mode: 'insensitive' } },
+          { customer: { fullName: { contains: q, mode: 'insensitive' } } },
+        ],
+      }),
+    };
+
+    const orders = await this.prisma.order.findMany({
+      where,
+      include: {
+        items: { include: { product: { select: { nameFr: true } } } },
+        customer: { select: { fullName: true, email: true, phoneNumber: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Escape a CSV cell — wrap in double quotes and escape internal quotes
+    const cell = (v: string | number | null | undefined) =>
+      `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    const headers = [
+      'ID', 'Date', 'Client', 'Email', 'Téléphone',
+      'Wilaya', 'Commune', 'Sous-total (DZD)', 'Livraison (DZD)', 'Total (DZD)',
+      'Statut', 'Paiement', 'Nb articles',
+    ].map(cell).join(',');
+
+    const rows = orders.map((o) => {
+      const addr = o.deliveryAddress as { wilaya?: string; commune?: string } | null;
+      const itemCount = o.items.reduce((sum, i) => sum + i.quantity, 0);
+      return [
+        o.id,
+        new Date(o.createdAt).toISOString().slice(0, 10),
+        o.customer.fullName,
+        o.customer.email,
+        o.customer.phoneNumber ?? '',
+        addr?.wilaya ?? '',
+        addr?.commune ?? '',
+        Number(o.subtotal),
+        Number(o.deliveryFee),
+        Number(o.total),
+        o.status,
+        o.paymentMethod,
+        itemCount,
+      ].map(cell).join(',');
+    });
+
+    // BOM (\uFEFF) makes Excel open UTF-8 files correctly
+    return '\uFEFF' + [headers, ...rows].join('\r\n');
+  }
+
   async updateStatus(orderId: string, newStatus: OrderStatus) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException(`Order '${orderId}' not found`);

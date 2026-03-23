@@ -5,10 +5,12 @@ import { ShoppingCart, Check } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { fetchProductById } from '@/lib/api';
 import { toast } from 'sonner';
-import type { RecipeIngredient } from '@/lib/data/recipes';
+interface BellatIngredient {
+  productId: string | null;
+}
 
 interface Props {
-  ingredients: RecipeIngredient[];
+  ingredients: BellatIngredient[];
   locale: string;
 }
 
@@ -22,8 +24,8 @@ export function AddBellatIngredientsButton({ ingredients, locale }: Props) {
     setIsLoading(true);
     let added = 0;
     for (const ing of ingredients) {
-      if (!ing.bellatProductId) continue;
-      const product = await fetchProductById(ing.bellatProductId);
+      if (!ing.productId) continue;
+      const product = await fetchProductById(ing.productId);
       if (product) {
         addToCart(product, 1);
         added++;

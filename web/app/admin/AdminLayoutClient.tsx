@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Package, ShoppingCart, LogOut, BarChart2, Users, FileBarChart2, Settings, Truck } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, LogOut, BarChart2, Users, FileBarChart2, Settings, Truck, ChefHat } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { toast, Toaster } from 'sonner';
 
@@ -98,6 +98,12 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               <Link href="/admin/delivery" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
                 <Truck className="h-5 w-5 group-hover:text-green-600" />
                 <span className="font-medium">Zones livraison</span>
+              </Link>
+            </li>
+            <li>
+              <Link href="/admin/recipes" className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-lg transition-colors group">
+                <ChefHat className="h-5 w-5 group-hover:text-green-600" />
+                <span className="font-medium">Recettes</span>
               </Link>
             </li>
           </ul>

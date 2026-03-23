@@ -78,9 +78,10 @@ model Product {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  category      Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems    OrderItem[]
-  favorites     Favorite[]
+  category            Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems          OrderItem[]
+  favorites           Favorite[]
+  recipeIngredients   RecipeIngredient[]
 
   @@index([categoryId])
   @@map("products")
@@ -220,6 +221,57 @@ model DeliveryZone {
   updatedAt   DateTime @updatedAt
 
   @@map("delivery_zones")
+}
+
+// ─────────────────────────────────────────────
+// Recipe
+// Admin-managed recipes that feature Bellat products
+// ─────────────────────────────────────────────
+
+model Recipe {
+  // Slug-style id, e.g. "chawarma-maison"
+  id            String             @id @db.VarChar(100)
+  nameFr        String             @db.VarChar(255)
+  nameAr        String             @db.VarChar(255)
+  descriptionFr String?
+  descriptionAr String?
+  // e.g. "starter", "main", "quick", "bbq"
+  category      String             @db.VarChar(50)
+  imageUrl      String?            @db.VarChar(255)
+  prepTime      Int                @default(0) // minutes
+  cookTime      Int                @default(0) // minutes
+  servings      Int                @default(4)
+  // e.g. "easy", "medium", "hard"
+  difficulty    String             @db.VarChar(20)
+  // Ordered cooking steps stored as JSON arrays
+  stepsFr       Json               @default("[]")
+  stepsAr       Json               @default("[]")
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  ingredients   RecipeIngredient[]
+
+  @@index([category])
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id              String   @id @default(uuid()) @db.Uuid
+  recipeId        String   @db.VarChar(100)
+  // Optional link to a Bellat product (for "add all to cart" feature)
+  productId       String?  @db.VarChar(50)
+  nameFr          String   @db.VarChar(255)
+  nameAr          String   @db.VarChar(255)
+  quantity        String   @db.VarChar(50)
+  unit            String   @db.VarChar(50)
+  sortOrder       Int      @default(0)
+
+  recipe          Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  product         Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([recipeId])
+  @@map("recipe_ingredients")
 }
 
 // ─────────────────────────────────────────────

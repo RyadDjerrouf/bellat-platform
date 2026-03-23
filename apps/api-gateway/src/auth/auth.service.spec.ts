@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { RedisService } from '../redis/redis.service';
 
 // ── Mock helpers ────────────────────────────────────────────────────────────
 
@@ -50,12 +51,23 @@ const mailMock = {
   sendPasswordReset: jest.fn().mockResolvedValue(undefined),
 };
 
+// Stateful in-memory store so lockout and reset-token tests work without a real Redis
+const redisStore = new Map<string, string>();
+const redisMock: Partial<RedisService> = {
+  get: jest.fn(async (key: string) => redisStore.get(key) ?? null),
+  set: jest.fn(async (key: string, value: string) => { redisStore.set(key, value); }),
+  del: jest.fn(async (...keys: string[]) => { keys.forEach((k) => redisStore.delete(k)); }),
+  getJson: jest.fn(async () => null),
+  setJson: jest.fn(async () => undefined),
+};
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(async () => {
+    redisStore.clear();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -63,11 +75,16 @@ describe('AuthService', () => {
         { provide: JwtService,     useValue: jwtMock },
         { provide: ConfigService,  useValue: configMock },
         { provide: MailService,    useValue: mailMock },
+        { provide: RedisService,   useValue: redisMock },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    // Re-bind mocks after clearAllMocks (implementations are preserved on the object)
+    (redisMock.get as jest.Mock).mockImplementation(async (key: string) => redisStore.get(key) ?? null);
+    (redisMock.set as jest.Mock).mockImplementation(async (key: string, value: string) => { redisStore.set(key, value); });
+    (redisMock.del as jest.Mock).mockImplementation(async (...keys: string[]) => { keys.forEach((k) => redisStore.delete(k)); });
   });
 
   // ── register ──────────────────────────────────────────────────────────────

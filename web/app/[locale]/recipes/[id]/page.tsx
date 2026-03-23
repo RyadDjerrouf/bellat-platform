@@ -1,12 +1,25 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Clock, Users, ChefHat, ArrowLeft, ShoppingCart } from 'lucide-react';
-import { getRecipeById, DIFFICULTY_LABELS, CATEGORY_LABELS } from '@/lib/data/recipes';
+import { fetchRecipeById } from '@/lib/api';
 import { AddBellatIngredientsButton } from '@/components/recipes/AddBellatIngredientsButton';
 
 type Props = { params: Promise<{ locale: string; id: string }> };
 
-const DIFFICULTY_COLORS = {
+const DIFFICULTY_LABELS: Record<string, { fr: string; ar: string }> = {
+  easy:   { fr: 'Facile', ar: 'سهل' },
+  medium: { fr: 'Moyen', ar: 'متوسط' },
+  hard:   { fr: 'Difficile', ar: 'صعب' },
+};
+
+const CATEGORY_LABELS: Record<string, { fr: string; ar: string }> = {
+  starter: { fr: 'Entrée', ar: 'مقبلات' },
+  main:    { fr: 'Plat principal', ar: 'طبق رئيسي' },
+  quick:   { fr: 'Rapide', ar: 'سريع' },
+  bbq:     { fr: 'BBQ', ar: 'شواء' },
+};
+
+const DIFFICULTY_COLORS: Record<string, string> = {
   easy:   'bg-green-100 text-green-700',
   medium: 'bg-yellow-100 text-yellow-700',
   hard:   'bg-red-100 text-red-700',
@@ -14,11 +27,16 @@ const DIFFICULTY_COLORS = {
 
 export default async function RecipeDetailPage({ params }: Props) {
   const { locale, id } = await params;
-  const recipe = getRecipeById(id);
+  const recipe = await fetchRecipeById(id);
   if (!recipe) notFound();
 
   const ar = locale === 'ar';
-  const bellatIngredients = recipe.ingredients.filter((i) => i.bellatProductId);
+  const bellatIngredients = recipe.ingredients.filter((i) => i.productId);
+  const diffLabel = DIFFICULTY_LABELS[recipe.difficulty] ?? { fr: recipe.difficulty, ar: recipe.difficulty };
+  const catLabel = CATEGORY_LABELS[recipe.category] ?? { fr: recipe.category, ar: recipe.category };
+  const diffColor = DIFFICULTY_COLORS[recipe.difficulty] ?? 'bg-gray-100 text-gray-600';
+
+  const steps = ar ? recipe.stepsAr : recipe.stepsFr;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -39,11 +57,11 @@ export default async function RecipeDetailPage({ params }: Props) {
       {/* Title + meta */}
       <div className="mb-8">
         <div className="flex flex-wrap gap-2 mb-3">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${DIFFICULTY_COLORS[recipe.difficulty]}`}>
-            {ar ? DIFFICULTY_LABELS[recipe.difficulty].ar : DIFFICULTY_LABELS[recipe.difficulty].fr}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${diffColor}`}>
+            {ar ? diffLabel.ar : diffLabel.fr}
           </span>
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
-            {ar ? CATEGORY_LABELS[recipe.category].ar : CATEGORY_LABELS[recipe.category].fr}
+            {ar ? catLabel.ar : catLabel.fr}
           </span>
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-3">
@@ -77,14 +95,12 @@ export default async function RecipeDetailPage({ params }: Props) {
             {ar ? 'المكونات' : 'Ingrédients'}
           </h2>
           <ul className="space-y-2 mb-6">
-            {recipe.ingredients.map((ing, i) => (
-              <li key={i} className={`flex items-start gap-2 text-sm py-2 border-b border-gray-50 ${ing.bellatProductId ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
-                {ing.bellatProductId && (
-                  <span className="mt-0.5 w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                )}
-                {!ing.bellatProductId && (
-                  <span className="mt-0.5 w-2 h-2 rounded-full bg-gray-200 shrink-0" />
-                )}
+            {recipe.ingredients.map((ing) => (
+              <li
+                key={ing.id}
+                className={`flex items-start gap-2 text-sm py-2 border-b border-gray-50 ${ing.productId ? 'font-medium text-gray-900' : 'text-gray-600'}`}
+              >
+                <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${ing.productId ? 'bg-green-500' : 'bg-gray-200'}`} />
                 <span>
                   <span className="text-gray-400 me-1">{ing.quantity} {ing.unit}</span>
                   {ar ? ing.nameAr : ing.nameFr}
@@ -119,7 +135,7 @@ export default async function RecipeDetailPage({ params }: Props) {
             {ar ? 'طريقة التحضير' : 'Préparation'}
           </h2>
           <ol className="space-y-5">
-            {(ar ? recipe.stepsAr : recipe.stepsFr).map((step, i) => (
+            {steps.map((step, i) => (
               <li key={i} className="flex gap-4">
                 <span className="shrink-0 w-8 h-8 rounded-full bg-green-700 text-white text-sm font-bold flex items-center justify-center">
                   {i + 1}
@@ -132,12 +148,4 @@ export default async function RecipeDetailPage({ params }: Props) {
       </div>
     </div>
   );
-}
-
-export async function generateStaticParams() {
-  const { RECIPES } = await import('@/lib/data/recipes');
-  return RECIPES.flatMap((r) => [
-    { locale: 'fr', id: r.id },
-    { locale: 'ar', id: r.id },
-  ]);
 }

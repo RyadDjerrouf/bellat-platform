@@ -6,66 +6,62 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { RedisService } from '../redis/redis.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 const BCRYPT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
-const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const LOCKOUT_SECONDS = 15 * 60; // 15 minutes
+const RESET_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
 
-interface LoginRecord {
-  count: number;
-  lockedUntil: Date | null;
-}
-
-interface ResetRecord {
-  userId: string;
-  expiresAt: Date;
-}
+// Redis key helpers
+const attemptKey  = (email: string) => `auth:attempts:${email}`;
+const lockKey     = (email: string) => `auth:locked:${email}`;
+const resetKey    = (token: string) => `auth:reset:${token}`;
+const resetUserKey = (userId: string) => `auth:reset_user:${userId}`;
 
 @Injectable()
 export class AuthService {
-  // In-memory stores — ephemeral (reset on server restart).
-  // TODO: move to Redis (Phase 4) for persistence across restarts.
-  private readonly loginAttempts = new Map<string, LoginRecord>();
-  private readonly resetTokens = new Map<string, ResetRecord>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly mail: MailService,
+    private readonly redis: RedisService,
   ) {}
 
-  // ── Lockout helpers ──────────────────────────────────────────────────────────
+  // ── Lockout helpers (Redis-backed) ───────────────────────────────────────────
 
-  private checkLockout(email: string): void {
-    const record = this.loginAttempts.get(email);
-    if (!record?.lockedUntil) return;
-    if (record.lockedUntil > new Date()) {
-      const remaining = Math.ceil((record.lockedUntil.getTime() - Date.now()) / 60_000);
-      throw new UnauthorizedException(
-        `Account temporarily locked. Try again in ${remaining} minute${remaining === 1 ? '' : 's'}.`,
-      );
-    }
-    // Lockout expired — clear it
-    this.loginAttempts.delete(email);
+  private async checkLockout(email: string): Promise<void> {
+    const locked = await this.redis.get(lockKey(email));
+    if (!locked) return;
+    // Key exists and has a TTL — compute remaining time from stored lock timestamp
+    const lockedAt = parseInt(locked, 10);
+    const remaining = Math.ceil((lockedAt + LOCKOUT_SECONDS * 1000 - Date.now()) / 60_000);
+    throw new UnauthorizedException(
+      `Account temporarily locked. Try again in ${Math.max(remaining, 1)} minute${remaining === 1 ? '' : 's'}.`,
+    );
   }
 
-  private recordFailedAttempt(email: string): void {
-    const record = this.loginAttempts.get(email) ?? { count: 0, lockedUntil: null };
-    record.count += 1;
-    if (record.count >= MAX_LOGIN_ATTEMPTS) {
-      record.lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60_000);
-      record.count = 0;
+  private async recordFailedAttempt(email: string): Promise<void> {
+    const key = attemptKey(email);
+    const raw = await this.redis.get(key);
+    const count = raw ? parseInt(raw, 10) + 1 : 1;
+
+    if (count >= MAX_LOGIN_ATTEMPTS) {
+      // Lock the account — key auto-expires after lockout period
+      await this.redis.set(lockKey(email), String(Date.now()), LOCKOUT_SECONDS);
+      await this.redis.del(key);
+    } else {
+      // Keep count alive for 30 minutes (resets if never triggered)
+      await this.redis.set(key, String(count), 30 * 60);
     }
-    this.loginAttempts.set(email, record);
   }
 
-  private clearAttempts(email: string): void {
-    this.loginAttempts.delete(email);
+  private async clearAttempts(email: string): Promise<void> {
+    await this.redis.del(attemptKey(email), lockKey(email));
   }
 
   async register(dto: RegisterDto) {
@@ -103,23 +99,23 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     // Check lockout before touching the DB — avoids unnecessary queries
-    this.checkLockout(dto.email);
+    await this.checkLockout(dto.email);
 
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
     if (!user) {
       // Record attempt even for unknown emails (prevents timing-based enumeration)
-      this.recordFailedAttempt(dto.email);
+      await this.recordFailedAttempt(dto.email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatch) {
-      this.recordFailedAttempt(dto.email);
+      await this.recordFailedAttempt(dto.email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.clearAttempts(dto.email);
+    await this.clearAttempts(dto.email);
     return this.buildTokenResponse(user.id, user.email, user.role);
   }
 
@@ -131,16 +127,14 @@ export class AuthService {
 
     if (!user) return { message: SUCCESS_MESSAGE };
 
-    // Invalidate any existing token for this user first
-    for (const [token, record] of this.resetTokens.entries()) {
-      if (record.userId === user.id) this.resetTokens.delete(token);
-    }
+    // Invalidate any existing token for this user (reverse-index lookup)
+    const oldToken = await this.redis.get(resetUserKey(user.id));
+    if (oldToken) await this.redis.del(resetKey(oldToken), resetUserKey(user.id));
 
     const token = randomUUID();
-    this.resetTokens.set(token, {
-      userId: user.id,
-      expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
-    });
+    // Store token → userId and userId → token (both expire in 1 hour)
+    await this.redis.set(resetKey(token), user.id, RESET_TOKEN_TTL_SECONDS);
+    await this.redis.set(resetUserKey(user.id), token, RESET_TOKEN_TTL_SECONDS);
 
     await this.mail.sendPasswordReset(email, token);
 
@@ -148,18 +142,14 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-    const record = this.resetTokens.get(token);
-    if (!record || record.expiresAt < new Date()) {
-      throw new BadRequestException('Invalid or expired reset token.');
-    }
+    const userId = await this.redis.get(resetKey(token));
+    if (!userId) throw new BadRequestException('Invalid or expired reset token.');
 
     const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    await this.prisma.user.update({
-      where: { id: record.userId },
-      data: { passwordHash },
-    });
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
 
-    this.resetTokens.delete(token);
+    // Invalidate both keys
+    await this.redis.del(resetKey(token), resetUserKey(userId));
     return { message: 'Password reset successfully. Please log in.' };
   }
 

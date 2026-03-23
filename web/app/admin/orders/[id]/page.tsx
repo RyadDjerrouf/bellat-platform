@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, MapPin, Calendar, Clock, User, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Clock, User, Phone, Mail, Printer } from 'lucide-react';
 import { fetchAdminOrder, adminUpdateOrderStatus, type AdminOrder } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -85,7 +85,38 @@ export default function AdminOrderDetailPage() {
 
   return (
     <div className="max-w-3xl">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6">
+      <style>{`
+        @media print {
+          /* Hide admin chrome */
+          nav, aside, header, footer { display: none !important; }
+          /* Remove page margins from browser defaults */
+          @page { margin: 1.5cm; }
+          body { background: white !important; }
+          /* Ensure cards render without shadows */
+          .shadow, .shadow-md, .shadow-sm { box-shadow: none !important; }
+        }
+      `}</style>
+
+      {/* Print-only invoice header */}
+      <div className="hidden print:block mb-8 border-b pb-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-green-700">Bellat — CVA</h1>
+            <p className="text-sm text-gray-500 mt-1">Conserverie de Viandes d'Algérie</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold text-gray-900">FACTURE</p>
+            <p className="font-mono text-sm text-green-700 mt-1">{order.id}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{formatShort(order.createdAt)}</p>
+          </div>
+        </div>
+        <div className="mt-4 flex gap-2 items-center">
+          <span className="text-sm font-semibold text-gray-600">Statut :</span>
+          <span className="text-sm font-medium text-gray-900">{s.label}</span>
+        </div>
+      </div>
+
+      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 print:hidden">
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
 
@@ -95,7 +126,7 @@ export default function AdminOrderDetailPage() {
           <h1 className="font-mono text-2xl font-bold text-gray-900">{order.id}</h1>
           <p className="text-sm text-gray-400 mt-0.5">{formatShort(order.createdAt)}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 print:hidden">
           <Badge variant={s.variant}>{s.label}</Badge>
           {next && (
             <button
@@ -106,6 +137,13 @@ export default function AdminOrderDetailPage() {
               {advancing ? '...' : `→ ${NEXT_LABEL[next] ?? next}`}
             </button>
           )}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Printer className="h-4 w-4" />
+            Imprimer
+          </button>
         </div>
       </div>
 

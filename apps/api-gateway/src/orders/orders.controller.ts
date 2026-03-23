@@ -2,13 +2,16 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Query,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -90,6 +93,16 @@ export class AdminOrdersController {
   @ApiOperation({ summary: '[Admin] List all orders with optional status filter' })
   findAll(@Query() query: OrderQueryDto) {
     return this.ordersService.findAll(query);
+  }
+
+  @Get('export')
+  @ApiOperation({ summary: '[Admin] Export filtered orders as CSV download' })
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportCsv(@Query() query: OrderQueryDto, @Res() res: Response) {
+    const csv = await this.ordersService.exportCsv(query);
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Disposition', `attachment; filename="bellat-commandes-${date}.csv"`);
+    res.send(csv);
   }
 
   @Get(':id')

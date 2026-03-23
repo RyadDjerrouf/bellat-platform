@@ -1,7 +1,7 @@
 # 📋 Bellat Digital Ordering Platform - Development Roadmap
 
-**Status:** 🟢 Phase 1 ✅ Phase 2 ✅ Phase 3 ✅ complete | **Next:** Recipe CRUD, push notifications, QA (unit tests, load tests, Arabic QA)
-**Last Updated:** March 22, 2026
+**Status:** 🟢 Phase 1 ✅ Phase 2 ✅ Phase 3 ✅ complete | **Next:** push notifications (SMS/FCM blocked), QA (load tests, Arabic QA, mobile testing), production infra
+**Last Updated:** March 23, 2026
 **Target Launch:** Q2 2026
 
 ---
@@ -32,8 +32,8 @@
 | Phase 1: Backend | ✅ Done | 35/35 tasks | Shared libs, pg_trgm autocomplete, cron stock alerts, CSV import all done. Delivery zones + SMS/push + B2B deferred to Phase 4+ |
 | Phase 2: Frontend | ✅ Done | 32/32 tasks | IndexedDB offline cache (Dexie.js) + background sync done. Modal/Drawer components done. Lighthouse scores: Performance 94, SEO 92 |
 | Phase 3: Admin | ✅ Done | 22/22 tasks | Delivery zones (backend + admin UI + checkout integration) done March 22 |
-| Phase 4: Integrations | 🟡 Partial | ~4/12 tasks | Image upload (MinIO), welcome/order confirmation/password reset emails, real-time WS done; SMS + FCM push still blocked |
-| Phase 5: QA & Launch | 🟡 In Progress | ~10/16 tasks | Playwright E2E + Lighthouse done; 10 bugs found and fixed across two sessions (March 21–22) |
+| Phase 4: Integrations | 🟡 Partial | ~8/12 tasks | Image upload (MinIO), emails (welcome/confirmation/reset), real-time WS, Recipe CRUD (backend + admin UI + DB migration + seeder + frontend wired), orders CSV export done; SMS + FCM push still blocked |
+| Phase 5: QA & Launch | 🟡 In Progress | ~12/16 tasks | Playwright E2E + Lighthouse done; 10 bugs fixed (March 21–22); backend unit tests extended (DeliveryService, FavoritesService, RecipesController, RecipesService — 75+ tests total); Jest + RTL set up in web with component + utility tests; print invoice on admin order detail done |
 
 **Phase 2 detail:** All customer-facing pages complete and wired to real backend. PWA: service worker, manifest, icons, offline fallback page all done. Favorites: add/remove from product detail, full favorites page. Recipes: 6 bilingual recipes with "add all to cart". IndexedDB product cache + background sync done (Dexie.js, `useProductCache`, `useOfflineSync` hooks).
 
@@ -890,19 +890,20 @@
 
 ### 4.4 Recipe Migration
 
-- [ ] **Scrape Existing Recipes** `[Backend]` `[M]`
-  - [ ] Scrape recipes from bellat.net
-  - [ ] Extract recipe data (title, image, instructions, ingredients)
-  - [ ] Link Bellat products to recipes
-  - [ ] Import into database
-  - **Acceptance:** Recipes migrated successfully
-  - **Requirements:** Recipe Linkage
+- [~] **Scrape Existing Recipes** `[Backend]` `[M]` 🟡 Partial
+  - [x] All 6 static recipes seeded into DB via `libs/database/prisma/seed-recipes.ts`
+  - [ ] Scrape additional recipes from bellat.net
+  - [x] Link Bellat products to recipes (productId on RecipeIngredient)
+  - **Acceptance:** ✅ 6 bilingual recipes live; additional scraping deferred
 
-- [ ] **Recipe CRUD** `[Backend]` `[S]`
-  - [ ] Admin endpoints to create/edit/delete recipes
-  - [ ] Upload recipe images
-  - [ ] Link products to recipes
-  - **Acceptance:** Admin can manage recipes
+- [x] **Recipe CRUD** `[Backend]` `[S]` ✅ Done (March 23)
+  - [x] Prisma models: `Recipe` + `RecipeIngredient` (migration `20260323000000_add_recipes`)
+  - [x] `RecipesService` — findAll, findOne, findAllAdmin, findOneAdmin, create, update (ingredient replacement), remove (soft-delete)
+  - [x] `RecipesController` — public `GET /api/recipes`, `GET /api/recipes/:id`; admin `GET/POST/PUT/DELETE /api/admin/recipes`
+  - [x] Admin UI: recipe list (with activate/deactivate toggle), new recipe form, edit recipe form (bilingual, ingredients, steps)
+  - [x] Frontend recipe pages wired to real API (server components, 60s revalidation)
+  - [x] `AddBellatIngredientsButton` wired to real product IDs
+  - **Acceptance:** ✅ Admin can create/edit/delete recipes; customer recipe pages load from DB
 
 ### 4.5 File Upload
 
@@ -958,12 +959,13 @@
 
 ### 5.1 Testing
 
-- [x] **Unit Testing** `[All Developers]` `[L]` *(backend services done)*
-  - [x] Write unit tests for all services (AuthService, OrdersService, SettingsService — 30 tests, Jest + ts-jest)
-  - [ ] Write unit tests for all React components
-  - [ ] Write unit tests for utility functions
+- [~] **Unit Testing** `[All Developers]` `[L]` 🟡 Partial
+  - [x] Backend: AuthService, OrdersService, SettingsService, RecipesService, DeliveryService, FavoritesService, RecipesController — 75+ tests, Jest + ts-jest
+  - [x] Frontend: Jest + ts-jest + @testing-library/react set up in `/web`; Button, StockBadge component tests + DZD/phone/order-ID utility tests
+  - [ ] More React component tests (forms, cart, checkout steps)
+  - [ ] More utility function tests
   - [x] Run tests in CI pipeline
-  - **Acceptance:** `npm test` passes, coverage > 80%
+  - **Acceptance:** `npm test` passes; more coverage needed to hit 80%
 
 - [ ] **Integration Testing** `[Backend]` `[L]`
   - [ ] Write E2E tests for API endpoints

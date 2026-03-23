@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
@@ -16,6 +17,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { SettingsModule } from './settings/settings.module';
 import { UploadModule } from './upload/upload.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { RecipesModule } from './recipes/recipes.module';
 
 @Module({
   imports: [
@@ -32,6 +34,9 @@ import { DeliveryModule } from './delivery/delivery.module';
     // Global DB access — PrismaService injectable in any module
     PrismaModule,
 
+    // Global Redis client — provides RedisService to all modules
+    RedisModule,
+
     AuthModule,
     ProductsModule,
     OrdersModule,
@@ -42,6 +47,7 @@ import { DeliveryModule } from './delivery/delivery.module';
     SettingsModule,
     UploadModule,
     DeliveryModule,
+    RecipesModule,
   ],
   controllers: [AppController],
   providers: [
